@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.TableColumn?>
+<?import javafx.scene.control.TableView?>
+<?import javafx.scene.layout.GridPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.Priority?>
+<?import javafx.scene.layout.VBox?>
+
+<VBox xmlns="http://javafx.com/javafx/21"
+      xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="com.example.BillingController"
+      spacing="12">
+    <padding>
+        <Insets top="12" right="12" bottom="12" left="12" />
+    </padding>
+
+    <Label text="Billing Management" styleClass="section-title" />
+    <Label text="Scene Builder compatible FXML view for invoices, revenue tracking, and billing status." styleClass="dashboard-hint" />
+
+    <GridPane hgap="10" vgap="10" styleClass="section-card">
+        <HBox spacing="6" styleClass="stat-card">
+            <VBox spacing="4">
+                <Label text="Total Invoices" styleClass="stat-title" />
+                <Label fx:id="totalInvoicesValue" text="0" styleClass="stat-value" />
+            </VBox>
+        </HBox>
+        <HBox spacing="6" styleClass="stat-card" GridPane.columnIndex="1">
+            <VBox spacing="4">
+                <Label text="Active Bills" styleClass="stat-title" />
+                <Label fx:id="activeInvoicesValue" text="0" styleClass="stat-value" />
+            </VBox>
+        </HBox>
+        <HBox spacing="6" styleClass="stat-card" GridPane.columnIndex="2">
+            <VBox spacing="4">
+                <Label text="Projected Revenue" styleClass="stat-title" />
+                <Label fx:id="projectedRevenueValue" text="0.00" styleClass="stat-value" />
+            </VBox>
+        </HBox>
+    </GridPane>
+
+    <HBox alignment="CENTER_RIGHT">
+        <Button text="Refresh Billing" onAction="#handleRefreshBilling" styleClass="secondary-button" />
+    </HBox>
+
+    <VBox spacing="8" styleClass="section-card">
+        <Label text="Invoice Register" styleClass="section-title" />
+        <TableView fx:id="billingTable" prefHeight="360">
+            <columns>
+                <TableColumn fx:id="invoiceColumn" text="Invoice" prefWidth="110" />
+                <TableColumn fx:id="roomColumn" text="Room" prefWidth="70" />
+                <TableColumn fx:id="guestColumn" text="Guest" prefWidth="130" />
+                <TableColumn fx:id="roomTypeColumn" text="Type" prefWidth="90" />
+                <TableColumn fx:id="statusColumn" text="Status" prefWidth="90" />
+                <TableColumn fx:id="nightsColumn" text="Nights" prefWidth="75" />
+                <TableColumn fx:id="totalColumn" text="Total" prefWidth="100" />
+                <TableColumn fx:id="checkInColumn" text="Check-in" prefWidth="110" />
+                <TableColumn fx:id="checkOutColumn" text="Checkout" prefWidth="110" />
+                <TableColumn fx:id="generatedOnColumn" text="Generated" prefWidth="110" />
+            </columns>
+            <VBox.vgrow>
+                <Priority fx:constant="ALWAYS" />
+            </VBox.vgrow>
+        </TableView>
+    </VBox>
+</VBox>

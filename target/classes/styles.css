@@ -1,0 +1,466 @@
+.root {
+    -app-bg: #11161d;
+    -app-surface: #181f28;
+    -app-surface-strong: #202a35;
+    -app-surface-muted: #151b22;
+    -app-border: #2b3642;
+    -app-border-strong: #3a4b5e;
+    -app-accent: #c89a5d;
+    -app-accent-soft: rgba(200, 154, 93, 0.18);
+    -app-text: #f4efe7;
+    -app-text-muted: #c2b7a5;
+    -app-text-subtle: #918675;
+    -app-success: #567b63;
+    -app-warning: #9d7040;
+    -fx-background-color:
+        radial-gradient(center 18% 8%, radius 45%, rgba(200, 154, 93, 0.16), transparent),
+        linear-gradient(to bottom, #151b22, #11161d 34%, #0d1218);
+    -fx-font-family: "Segoe UI Variable", "Segoe UI", sans-serif;
+}
+
+.label {
+    -fx-font-size: 13px;
+    -fx-font-weight: 600;
+    -fx-text-fill: -app-text-muted;
+}
+
+.title-label {
+    -fx-font-size: 34px;
+    -fx-font-weight: 800;
+    -fx-text-fill: -app-text;
+}
+
+.subtitle-label {
+    -fx-font-size: 14px;
+    -fx-font-weight: 500;
+    -fx-text-fill: -app-text-subtle;
+}
+
+.dashboard-hint {
+    -fx-font-size: 12px;
+    -fx-font-weight: 500;
+    -fx-text-fill: -app-text-subtle;
+}
+
+.status-label {
+    -fx-background-color: linear-gradient(to right, rgba(200, 154, 93, 0.16), rgba(200, 154, 93, 0.04));
+    -fx-border-color: rgba(200, 154, 93, 0.4);
+    -fx-border-width: 1;
+    -fx-border-radius: 14;
+    -fx-background-radius: 14;
+    -fx-padding: 11 14;
+    -fx-font-size: 12px;
+    -fx-font-weight: 700;
+    -fx-text-fill: -app-text;
+}
+
+.section-title {
+    -fx-font-size: 15px;
+    -fx-font-weight: 800;
+    -fx-text-fill: -app-text;
+}
+
+.section-card {
+    -fx-background-color:
+        linear-gradient(to bottom, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0)),
+        linear-gradient(to bottom, rgba(27, 35, 44, 0.98), rgba(22, 29, 38, 0.98));
+    -fx-border-color: rgba(255, 255, 255, 0.04), -app-border;
+    -fx-border-width: 1, 1;
+    -fx-border-insets: 0, 0;
+    -fx-border-radius: 18, 18;
+    -fx-background-radius: 18, 18;
+    -fx-padding: 18;
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.28), 26, 0.14, 0, 10);
+}
+
+.tab-pane {
+    -fx-tab-min-width: 128px;
+}
+
+.tab-pane .tab-header-area {
+    -fx-padding: 2 0 12 0;
+}
+
+.tab-pane .tab-header-area .tab-header-background {
+    -fx-background-color: transparent;
+}
+
+.tab-pane .headers-region {
+    -fx-background-color: transparent;
+}
+
+.tab-pane .tab {
+    -fx-background-color: rgba(255, 255, 255, 0.03);
+    -fx-padding: 10 18;
+    -fx-background-radius: 12;
+    -fx-border-color: transparent;
+    -fx-border-radius: 12;
+}
+
+.tab-pane .tab .tab-label {
+    -fx-font-size: 12px;
+    -fx-font-weight: 700;
+    -fx-text-fill: -app-text-subtle;
+}
+
+.tab-pane .tab:selected {
+    -fx-background-color:
+        linear-gradient(to bottom, rgba(200, 154, 93, 0.28), rgba(200, 154, 93, 0.16)),
+        linear-gradient(to bottom, rgba(30, 39, 49, 0.98), rgba(24, 31, 40, 0.98));
+    -fx-border-color: rgba(200, 154, 93, 0.46);
+}
+
+.tab-pane .tab:selected .tab-label {
+    -fx-text-fill: -app-text;
+}
+
+.tab-pane .focus-indicator {
+    -fx-border-color: transparent;
+}
+
+.tab-pane .tab-content-area {
+    -fx-background-color: rgba(12, 16, 22, 0.58);
+    -fx-background-radius: 22;
+    -fx-border-color: rgba(255, 255, 255, 0.04);
+    -fx-border-width: 1;
+    -fx-border-radius: 22;
+    -fx-padding: 6;
+}
+
+.button {
+    -fx-background-color:
+        linear-gradient(to bottom, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0)),
+        linear-gradient(to bottom, #2c3744, #222c36);
+    -fx-text-fill: -app-text;
+    -fx-border-color: rgba(255, 255, 255, 0.05), -app-border;
+    -fx-border-width: 1, 1;
+    -fx-border-radius: 12, 12;
+    -fx-background-radius: 12, 12;
+    -fx-padding: 10 15;
+    -fx-font-weight: 700;
+    -fx-font-size: 12px;
+    -fx-cursor: hand;
+}
+
+.button:hover {
+    -fx-background-color:
+        linear-gradient(to bottom, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0)),
+        linear-gradient(to bottom, #344252, #26313d);
+    -fx-border-color: rgba(200, 154, 93, 0.2), -app-border-strong;
+}
+
+.button:pressed {
+    -fx-translate-y: 1px;
+}
+
+.primary-button {
+    -fx-background-color:
+        linear-gradient(to bottom, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0)),
+        linear-gradient(to bottom, #c89a5d, #b68749);
+    -fx-text-fill: #16120d;
+    -fx-border-color: rgba(255, 255, 255, 0.18), rgba(200, 154, 93, 0.7);
+}
+
+.primary-button:hover {
+    -fx-background-color:
+        linear-gradient(to bottom, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0)),
+        linear-gradient(to bottom, #d3a76c, #be9257);
+}
+
+.secondary-button {
+    -fx-text-fill: -app-text;
+}
+
+.warning-button {
+    -fx-background-color:
+        linear-gradient(to bottom, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0)),
+        linear-gradient(to bottom, #8f6540, #775334);
+    -fx-border-color: rgba(255, 255, 255, 0.1), rgba(157, 112, 64, 0.72);
+}
+
+.warning-button:hover {
+    -fx-background-color:
+        linear-gradient(to bottom, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0)),
+        linear-gradient(to bottom, #9f7448, #845b39);
+}
+
+.quick-button {
+    -fx-pref-width: 360;
+    -fx-alignment: center-left;
+    -fx-padding: 14 16;
+    -fx-font-size: 14px;
+    -fx-font-weight: 800;
+    -fx-background-radius: 14;
+    -fx-border-radius: 14;
+}
+
+.quick-room,
+.quick-guest,
+.quick-booking,
+.quick-reports {
+    -fx-background-color:
+        linear-gradient(to right, rgba(200, 154, 93, 0.18), rgba(200, 154, 93, 0.03)),
+        linear-gradient(to bottom, #232d37, #1b232c);
+    -fx-border-color: rgba(200, 154, 93, 0.16), -app-border;
+    -fx-text-fill: -app-text;
+}
+
+.quick-room:hover,
+.quick-guest:hover,
+.quick-booking:hover,
+.quick-reports:hover {
+    -fx-background-color:
+        linear-gradient(to right, rgba(200, 154, 93, 0.24), rgba(200, 154, 93, 0.05)),
+        linear-gradient(to bottom, #2a3541, #202933);
+}
+
+.text-field,
+.combo-box,
+.date-picker,
+.list-view {
+    -fx-padding: 9 11;
+    -fx-border-color: -app-border;
+    -fx-border-width: 1;
+    -fx-border-radius: 12;
+    -fx-background-radius: 12;
+    -fx-background-color: rgba(11, 15, 20, 0.72);
+    -fx-text-fill: -app-text;
+    -fx-prompt-text-fill: #746b60;
+}
+
+.text-field:focused,
+.combo-box:focused,
+.date-picker:focused {
+    -fx-border-color: rgba(200, 154, 93, 0.72);
+    -fx-background-color: rgba(15, 19, 25, 0.92);
+}
+
+.combo-box .list-cell,
+.date-picker .text-field,
+.combo-box .text-field {
+    -fx-background-color: transparent;
+    -fx-text-fill: -app-text;
+}
+
+.combo-box .arrow-button,
+.date-picker .arrow-button {
+    -fx-background-color: transparent;
+    -fx-background-radius: 0 12 12 0;
+}
+
+.combo-box .arrow,
+.date-picker .arrow {
+    -fx-background-color: -app-text-subtle;
+}
+
+.list-view {
+    -fx-padding: 6;
+}
+
+.list-view .virtual-flow {
+    -fx-background-color: transparent;
+}
+
+.list-view .list-cell {
+    -fx-padding: 10 12;
+    -fx-font-size: 12px;
+    -fx-font-weight: 600;
+    -fx-background-color: transparent;
+    -fx-text-fill: -app-text-muted;
+    -fx-border-color: transparent transparent rgba(255, 255, 255, 0.04) transparent;
+    -fx-border-width: 0 0 1 0;
+}
+
+.list-view .list-cell:filled:hover {
+    -fx-background-color: rgba(255, 255, 255, 0.03);
+}
+
+.list-view .list-cell:filled:selected {
+    -fx-background-color: rgba(200, 154, 93, 0.16);
+    -fx-text-fill: -app-text;
+    -fx-background-radius: 10;
+}
+
+.list-view .placeholder .label {
+    -fx-font-weight: 600;
+    -fx-text-fill: -app-text-subtle;
+}
+
+.table-view {
+    -fx-background-color: rgba(11, 15, 20, 0.76);
+    -fx-border-color: -app-border;
+    -fx-border-width: 1;
+    -fx-border-radius: 14;
+    -fx-background-radius: 14;
+    -fx-padding: 4;
+}
+
+.table-view .column-header-background {
+    -fx-background-color: #1b232c;
+    -fx-background-radius: 12 12 0 0;
+}
+
+.table-view .column-header,
+.table-view .filler {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent transparent rgba(255, 255, 255, 0.05) transparent;
+}
+
+.table-view .column-header .label {
+    -fx-text-fill: -app-text;
+    -fx-font-size: 11px;
+    -fx-font-weight: 800;
+    -fx-padding: 10 8;
+}
+
+.table-view .table-row-cell {
+    -fx-background-color: transparent;
+    -fx-table-cell-border-color: rgba(255, 255, 255, 0.03);
+}
+
+.table-view .table-row-cell:filled:hover {
+    -fx-background-color: rgba(255, 255, 255, 0.03);
+}
+
+.table-view .table-row-cell:filled:selected {
+    -fx-background-color: rgba(200, 154, 93, 0.16);
+}
+
+.table-view .table-cell {
+    -fx-text-fill: -app-text-muted;
+    -fx-font-size: 12px;
+    -fx-font-weight: 600;
+    -fx-alignment: center-left;
+    -fx-padding: 10 8;
+}
+
+.table-view .placeholder .label {
+    -fx-text-fill: -app-text-subtle;
+}
+
+.stat-card {
+    -fx-background-color:
+        linear-gradient(to bottom, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0)),
+        linear-gradient(to bottom, #242f3a, #1d262f);
+    -fx-border-color: rgba(255, 255, 255, 0.04), -app-border;
+    -fx-border-width: 1, 1;
+    -fx-border-radius: 16, 16;
+    -fx-background-radius: 16, 16;
+    -fx-padding: 14;
+}
+
+.stat-card .label {
+    -fx-text-fill: -app-text;
+}
+
+.stat-title {
+    -fx-font-size: 11px;
+    -fx-font-weight: 700;
+    -fx-text-fill: -app-text-subtle;
+}
+
+.stat-value {
+    -fx-font-size: 28px;
+    -fx-font-weight: 800;
+}
+
+.stat-blue,
+.stat-green,
+.stat-orange,
+.stat-purple {
+    -fx-border-color: rgba(255, 255, 255, 0.04), rgba(200, 154, 93, 0.22);
+}
+
+.report-grid {
+    -fx-background-color: #141a21;
+    -fx-border-color: -app-border;
+    -fx-border-width: 1;
+    -fx-border-radius: 16;
+    -fx-background-radius: 16;
+}
+
+.report-header-cell {
+    -fx-background-color: #1d2630;
+    -fx-text-fill: -app-text;
+    -fx-font-size: 11px;
+    -fx-font-weight: 800;
+    -fx-padding: 12 14;
+    -fx-border-color: transparent rgba(255, 255, 255, 0.04) rgba(255, 255, 255, 0.06) transparent;
+    -fx-border-width: 0 1 1 0;
+}
+
+.report-cell {
+    -fx-background-color: #161d25;
+    -fx-text-fill: -app-text-muted;
+    -fx-font-size: 12px;
+    -fx-font-weight: 600;
+    -fx-padding: 12 14;
+    -fx-border-color: transparent rgba(255, 255, 255, 0.03) rgba(255, 255, 255, 0.03) transparent;
+    -fx-border-width: 0 1 1 0;
+}
+
+.status-available,
+.status-occupied {
+    -fx-font-weight: 800;
+}
+
+.status-available {
+    -fx-background-color: rgba(86, 123, 99, 0.24);
+    -fx-text-fill: #d6eadb;
+}
+
+.status-occupied {
+    -fx-background-color: rgba(157, 112, 64, 0.26);
+    -fx-text-fill: #f2dfcb;
+}
+
+.report-empty {
+    -fx-padding: 20;
+    -fx-font-size: 12px;
+    -fx-font-weight: 700;
+    -fx-text-fill: -app-text-subtle;
+    -fx-background-color: #161d25;
+    -fx-border-color: transparent rgba(255, 255, 255, 0.03) rgba(255, 255, 255, 0.03) transparent;
+    -fx-border-width: 0 1 1 0;
+}
+
+.report-scroll {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+    -fx-padding: 0;
+}
+
+.content-scroll {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+    -fx-padding: 0;
+}
+
+.content-scroll > .viewport {
+    -fx-background-color: transparent;
+}
+
+.report-scroll > .viewport {
+    -fx-background-color: transparent;
+}
+
+.scroll-bar:vertical,
+.scroll-bar:horizontal {
+    -fx-background-color: transparent;
+}
+
+.scroll-bar .thumb {
+    -fx-background-color: rgba(200, 154, 93, 0.34);
+    -fx-background-radius: 999;
+}
+
+.scroll-bar .increment-button,
+.scroll-bar .decrement-button {
+    -fx-background-color: transparent;
+    -fx-padding: 0;
+}
+
+.scroll-bar .increment-arrow,
+.scroll-bar .decrement-arrow {
+    -fx-background-color: transparent;
+}
