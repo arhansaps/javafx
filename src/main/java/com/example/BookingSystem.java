@@ -155,6 +155,16 @@ public class BookingSystem {
                 toDate = Pair.displayValue(datePair.getSecond().format(DATE_FORMATTER));
             }
 
+            BillingRecord billingRecord = findLatestBillingRecordByRoom(entry.getKey());
+            String paymentSummary = "";
+            if (billingRecord != null) {
+                paymentSummary = " | Payment: "
+                        + billingRecord.getPaymentStatus()
+                        + " ("
+                        + billingRecord.getPaymentMethod()
+                        + ")";
+            }
+
             builder.append("Room ")
                     .append(Pair.displayValue(pair.getFirst()))
                     .append(" -> ")
@@ -163,6 +173,7 @@ public class BookingSystem {
                     .append(fromDate)
                     .append(" | To: ")
                     .append(toDate)
+                    .append(paymentSummary)
                     .append(System.lineSeparator());
         }
         return builder.toString();
@@ -227,7 +238,12 @@ public class BookingSystem {
     }
 
     // Demonstrating synchronization
-    public synchronized String bookRoom(String customerName, Integer roomNumber, LocalDate checkInDate, LocalDate checkOutDate) {
+    public synchronized String bookRoom(
+            String customerName,
+            Integer roomNumber,
+            LocalDate checkInDate,
+            LocalDate checkOutDate,
+            PaymentMethod paymentMethod) {
         Room room = findRoomByNumber(roomNumber);
         if (room == null) {
             return "Room not found.";
@@ -241,6 +257,10 @@ public class BookingSystem {
             return "Checkout date must be on or after check-in date.";
         }
 
+        if (paymentMethod == null) {
+            return "Select a payment method.";
+        }
+
         if (!room.getAvailable()) {
             return "Room is not available.";
         }
@@ -248,7 +268,14 @@ public class BookingSystem {
         room.setAvailable(Boolean.FALSE);
         roomToCustomerMap.put(roomNumber, customerName);
         roomBookingDatesMap.put(roomNumber, new Pair<>(checkInDate, checkOutDate));
-        billingRecords.add(BillingRecord.createActiveRecord(generateInvoiceNumber(), room, customerName, checkInDate, checkOutDate));
+        BillingRecord billingRecord = BillingRecord.createActiveRecord(
+                generateInvoiceNumber(),
+                room,
+                customerName,
+                checkInDate,
+                checkOutDate,
+                paymentMethod);
+        billingRecords.add(billingRecord);
 
         Pair<Integer, String> bookingPair = new Pair<>(roomNumber, customerName);
         return "Booking successful: Room "
@@ -259,7 +286,11 @@ public class BookingSystem {
                 + checkInDate.format(DATE_FORMATTER)
                 + " to "
                 + checkOutDate.format(DATE_FORMATTER)
-                + ")";
+                + ")"
+                + " | Payment received via "
+                + paymentMethod.getDisplayName()
+                + " | Invoice "
+                + billingRecord.getInvoiceNumber();
     }
 
     public void bookRoomAsync(
@@ -267,6 +298,7 @@ public class BookingSystem {
             Integer roomNumber,
             LocalDate checkInDate,
             LocalDate checkOutDate,
+            PaymentMethod paymentMethod,
             Consumer<String> callback) {
         // Demonstrating multithreading
         Thread bookingThread = new Thread(() -> {
@@ -275,7 +307,7 @@ public class BookingSystem {
             } catch (InterruptedException exception) {
                 Thread.currentThread().interrupt();
             }
-            String result = bookRoom(customerName, roomNumber, checkInDate, checkOutDate);
+            String result = bookRoom(customerName, roomNumber, checkInDate, checkOutDate, paymentMethod);
             callback.accept(result);
         });
         bookingThread.start();
@@ -465,6 +497,16 @@ public class BookingSystem {
                 return;
             }
         }
+    }
+
+    private BillingRecord findLatestBillingRecordByRoom(Integer roomNumber) {
+        for (int index = billingRecords.size() - 1; index >= 0; index--) {
+            BillingRecord record = billingRecords.get(index);
+            if (record.getRoomNumber().equals(roomNumber)) {
+                return record;
+            }
+        }
+        return null;
     }
 
     private void updateInvoiceCounter() {

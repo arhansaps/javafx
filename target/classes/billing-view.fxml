@@ -30,13 +30,13 @@
         </HBox>
         <HBox spacing="6" styleClass="stat-card" GridPane.columnIndex="1">
             <VBox spacing="4">
-                <Label text="Active Bills" styleClass="stat-title" />
+                <Label text="Paid Invoices" styleClass="stat-title" />
                 <Label fx:id="activeInvoicesValue" text="0" styleClass="stat-value" />
             </VBox>
         </HBox>
         <HBox spacing="6" styleClass="stat-card" GridPane.columnIndex="2">
             <VBox spacing="4">
-                <Label text="Projected Revenue" styleClass="stat-title" />
+                <Label text="Collected Revenue" styleClass="stat-title" />
                 <Label fx:id="projectedRevenueValue" text="0.00" styleClass="stat-value" />
             </VBox>
         </HBox>
@@ -55,6 +55,8 @@
                 <TableColumn fx:id="guestColumn" text="Guest" prefWidth="130" />
                 <TableColumn fx:id="roomTypeColumn" text="Type" prefWidth="90" />
                 <TableColumn fx:id="statusColumn" text="Status" prefWidth="90" />
+                <TableColumn fx:id="paymentMethodColumn" text="Payment" prefWidth="100" />
+                <TableColumn fx:id="paymentStatusColumn" text="Pay Status" prefWidth="100" />
                 <TableColumn fx:id="nightsColumn" text="Nights" prefWidth="75" />
                 <TableColumn fx:id="totalColumn" text="Total" prefWidth="100" />
                 <TableColumn fx:id="checkInColumn" text="Check-in" prefWidth="110" />

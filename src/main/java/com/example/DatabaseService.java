@@ -9,6 +9,8 @@ import java.sql.Statement;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Set;
 
 public final class DatabaseService {
     private DatabaseService() {
@@ -89,10 +91,15 @@ public final class DatabaseService {
                         service_charge REAL NOT NULL,
                         total_amount REAL NOT NULL,
                         billing_status TEXT NOT NULL,
+                        payment_method TEXT NOT NULL DEFAULT '-',
+                        payment_status TEXT NOT NULL DEFAULT 'Pending',
                         generated_on TEXT
                     )
                     """);
         }
+
+        ensureBillingColumn(connection, "payment_method", "TEXT NOT NULL DEFAULT '-'");
+        ensureBillingColumn(connection, "payment_status", "TEXT NOT NULL DEFAULT 'Pending'");
     }
 
     private static void clearTables(Connection connection) throws SQLException {
@@ -149,8 +156,10 @@ public final class DatabaseService {
                     service_charge,
                     total_amount,
                     billing_status,
+                    payment_method,
+                    payment_status,
                     generated_on
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """)) {
             for (BillingRecord record : billingRecords) {
                 statement.setString(1, record.getInvoiceNumber());
@@ -164,7 +173,9 @@ public final class DatabaseService {
                 statement.setDouble(9, record.getServiceCharge());
                 statement.setDouble(10, record.getTotalAmount());
                 statement.setString(11, record.getBillingStatus());
-                statement.setString(12, record.getGeneratedOn() == null ? null : record.getGeneratedOn().toString());
+                statement.setString(12, record.getPaymentMethod());
+                statement.setString(13, record.getPaymentStatus());
+                statement.setString(14, record.getGeneratedOn() == null ? null : record.getGeneratedOn().toString());
                 statement.addBatch();
             }
             statement.executeBatch();
@@ -226,7 +237,8 @@ public final class DatabaseService {
         try (Statement statement = connection.createStatement();
              ResultSet resultSet = statement.executeQuery("""
                      SELECT invoice_number, room_number, customer_name, room_type, check_in_date, check_out_date,
-                            nights, room_charge, service_charge, total_amount, billing_status, generated_on
+                            nights, room_charge, service_charge, total_amount, billing_status, payment_method,
+                            payment_status, generated_on
                      FROM billing_records
                      ORDER BY generated_on DESC, invoice_number DESC
                      """)) {
@@ -243,11 +255,29 @@ public final class DatabaseService {
                         resultSet.getDouble("service_charge"),
                         resultSet.getDouble("total_amount"),
                         resultSet.getString("billing_status"),
+                        resultSet.getString("payment_method"),
+                        resultSet.getString("payment_status"),
                         parseDate(resultSet.getString("generated_on"))));
             }
         }
 
         return loadedBillingRecords;
+    }
+
+    private static void ensureBillingColumn(Connection connection, String columnName, String definition) throws SQLException {
+        Set<String> columnNames = new HashSet<>();
+        try (Statement statement = connection.createStatement();
+             ResultSet resultSet = statement.executeQuery("PRAGMA table_info(billing_records)")) {
+            while (resultSet.next()) {
+                columnNames.add(resultSet.getString("name"));
+            }
+        }
+
+        if (!columnNames.contains(columnName)) {
+            try (Statement statement = connection.createStatement()) {
+                statement.execute("ALTER TABLE billing_records ADD COLUMN " + columnName + " " + definition);
+            }
+        }
     }
 
     private static LocalDate parseDate(String dateValue) {

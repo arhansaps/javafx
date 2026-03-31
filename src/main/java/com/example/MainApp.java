@@ -132,6 +132,10 @@ public class MainApp extends Application {
         Label checkOutLabel = new Label("Checkout Date:");
         DatePicker checkOutPicker = new DatePicker();
 
+        Label paymentMethodLabel = new Label("Payment Method:");
+        ComboBox<PaymentMethod> paymentMethodCombo = new ComboBox<>(FXCollections.observableArrayList(PaymentMethod.values()));
+        paymentMethodCombo.setPromptText("Select payment method");
+
         Button bookButton = new Button("Book Room");
         Button checkoutButton = new Button("Checkout Room");
         Button showBookingsButton = new Button("Show Bookings");
@@ -147,9 +151,11 @@ public class MainApp extends Application {
         bookingGrid.add(checkInPicker, 1, 2);
         bookingGrid.add(checkOutLabel, 0, 3);
         bookingGrid.add(checkOutPicker, 1, 3);
-        bookingGrid.add(bookButton, 0, 4);
-        bookingGrid.add(checkoutButton, 1, 4);
-        bookingGrid.add(showBookingsButton, 0, 5);
+        bookingGrid.add(paymentMethodLabel, 0, 4);
+        bookingGrid.add(paymentMethodCombo, 1, 4);
+        bookingGrid.add(bookButton, 0, 5);
+        bookingGrid.add(checkoutButton, 1, 5);
+        bookingGrid.add(showBookingsButton, 0, 6);
 
         Label bookingListTitle = new Label("Active Bookings (Date-wise)");
         bookingListTitle.getStyleClass().add("section-title");
@@ -431,7 +437,13 @@ public class MainApp extends Application {
                 return;
             }
 
-            bookingSystem.bookRoomAsync(customerName, roomNumber, checkInDate, checkOutDate, message ->
+            PaymentMethod paymentMethod = paymentMethodCombo.getValue();
+            if (paymentMethod == null) {
+                updateStatus("Select a payment method.");
+                return;
+            }
+
+            bookingSystem.bookRoomAsync(customerName, roomNumber, checkInDate, checkOutDate, paymentMethod, message ->
                     Platform.runLater(() -> {
                         updateStatus(message);
                         refreshAllViews.run();
@@ -441,6 +453,7 @@ public class MainApp extends Application {
                             bookingRoomField.clear();
                             checkInPicker.setValue(null);
                             checkOutPicker.setValue(null);
+                            paymentMethodCombo.setValue(null);
                         }
                     }));
         });

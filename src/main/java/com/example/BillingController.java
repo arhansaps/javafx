@@ -39,6 +39,12 @@ public class BillingController {
     private TableColumn<BillingRecord, String> statusColumn;
 
     @FXML
+    private TableColumn<BillingRecord, String> paymentMethodColumn;
+
+    @FXML
+    private TableColumn<BillingRecord, String> paymentStatusColumn;
+
+    @FXML
     private TableColumn<BillingRecord, Integer> nightsColumn;
 
     @FXML
@@ -63,6 +69,8 @@ public class BillingController {
         guestColumn.setCellValueFactory(new PropertyValueFactory<>("customerName"));
         roomTypeColumn.setCellValueFactory(new PropertyValueFactory<>("roomType"));
         statusColumn.setCellValueFactory(new PropertyValueFactory<>("billingStatus"));
+        paymentMethodColumn.setCellValueFactory(new PropertyValueFactory<>("paymentMethod"));
+        paymentStatusColumn.setCellValueFactory(new PropertyValueFactory<>("paymentStatus"));
         nightsColumn.setCellValueFactory(new PropertyValueFactory<>("nights"));
         totalColumn.setCellValueFactory(new PropertyValueFactory<>("totalAmountText"));
         checkInColumn.setCellValueFactory(new PropertyValueFactory<>("checkInText"));
@@ -99,9 +107,10 @@ public class BillingController {
         billingTable.setItems(FXCollections.observableArrayList(billingRecords));
 
         long activeInvoices = billingRecords.stream()
-                .filter(record -> "Active".equalsIgnoreCase(record.getBillingStatus()))
+                .filter(record -> "Paid".equalsIgnoreCase(record.getPaymentStatus()))
                 .count();
         double projectedRevenue = billingRecords.stream()
+                .filter(record -> "Paid".equalsIgnoreCase(record.getPaymentStatus()))
                 .mapToDouble(BillingRecord::getTotalAmount)
                 .sum();
 

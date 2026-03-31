@@ -18,6 +18,8 @@ public class BillingRecord {
     private final Double serviceCharge;
     private final Double totalAmount;
     private final String billingStatus;
+    private final String paymentMethod;
+    private final String paymentStatus;
     private final LocalDate generatedOn;
 
     public BillingRecord(
@@ -32,6 +34,8 @@ public class BillingRecord {
             Double serviceCharge,
             Double totalAmount,
             String billingStatus,
+            String paymentMethod,
+            String paymentStatus,
             LocalDate generatedOn) {
         this.invoiceNumber = invoiceNumber;
         this.roomNumber = roomNumber;
@@ -44,10 +48,18 @@ public class BillingRecord {
         this.serviceCharge = serviceCharge;
         this.totalAmount = totalAmount;
         this.billingStatus = billingStatus;
+        this.paymentMethod = paymentMethod;
+        this.paymentStatus = paymentStatus;
         this.generatedOn = generatedOn;
     }
 
-    public static BillingRecord createActiveRecord(String invoiceNumber, Room room, String customerName, LocalDate checkInDate, LocalDate checkOutDate) {
+    public static BillingRecord createActiveRecord(
+            String invoiceNumber,
+            Room room,
+            String customerName,
+            LocalDate checkInDate,
+            LocalDate checkOutDate,
+            PaymentMethod paymentMethod) {
         Integer nights = calculateNights(checkInDate, checkOutDate);
         Double roomCharge = room.calculatePrice() * nights;
         Double serviceCharge = roomCharge * 0.12;
@@ -65,6 +77,8 @@ public class BillingRecord {
                 serviceCharge,
                 totalAmount,
                 "Active",
+                paymentMethod == null ? "-" : paymentMethod.getDisplayName(),
+                paymentMethod == null ? "Pending" : "Paid",
                 LocalDate.now());
     }
 
@@ -81,6 +95,8 @@ public class BillingRecord {
                 serviceCharge,
                 totalAmount,
                 "Closed",
+                paymentMethod,
+                paymentStatus,
                 LocalDate.now());
     }
 
@@ -135,6 +151,14 @@ public class BillingRecord {
 
     public String getBillingStatus() {
         return billingStatus;
+    }
+
+    public String getPaymentMethod() {
+        return paymentMethod;
+    }
+
+    public String getPaymentStatus() {
+        return paymentStatus;
     }
 
     public LocalDate getGeneratedOn() {

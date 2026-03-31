@@ -6,6 +6,7 @@ com\example\DatabaseService.class
 com\example\RoomType.class
 com\example\Room.class
 com\example\BillingRecord.class
+com\example\PaymentMethod.class
 com\example\Pair.class
 com\example\BookingSystem$ReportRow.class
 com\example\BookingSystem.class
