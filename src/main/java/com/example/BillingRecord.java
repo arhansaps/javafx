@@ -20,6 +20,7 @@ public class BillingRecord {
     private final String billingStatus;
     private final String paymentMethod;
     private final String paymentStatus;
+    private final String paymentReference;
     private final LocalDate generatedOn;
 
     public BillingRecord(
@@ -36,6 +37,7 @@ public class BillingRecord {
             String billingStatus,
             String paymentMethod,
             String paymentStatus,
+            String paymentReference,
             LocalDate generatedOn) {
         this.invoiceNumber = invoiceNumber;
         this.roomNumber = roomNumber;
@@ -50,6 +52,7 @@ public class BillingRecord {
         this.billingStatus = billingStatus;
         this.paymentMethod = paymentMethod;
         this.paymentStatus = paymentStatus;
+        this.paymentReference = paymentReference;
         this.generatedOn = generatedOn;
     }
 
@@ -59,7 +62,8 @@ public class BillingRecord {
             String customerName,
             LocalDate checkInDate,
             LocalDate checkOutDate,
-            PaymentMethod paymentMethod) {
+            PaymentMethod paymentMethod,
+            String paymentReference) {
         Integer nights = calculateNights(checkInDate, checkOutDate);
         Double roomCharge = room.calculatePrice() * nights;
         Double serviceCharge = roomCharge * 0.12;
@@ -79,6 +83,7 @@ public class BillingRecord {
                 "Active",
                 paymentMethod == null ? "-" : paymentMethod.getDisplayName(),
                 paymentMethod == null ? "Pending" : "Paid",
+                paymentReference == null || paymentReference.isBlank() ? "-" : paymentReference,
                 LocalDate.now());
     }
 
@@ -97,6 +102,7 @@ public class BillingRecord {
                 "Closed",
                 paymentMethod,
                 paymentStatus,
+                paymentReference,
                 LocalDate.now());
     }
 
@@ -159,6 +165,10 @@ public class BillingRecord {
 
     public String getPaymentStatus() {
         return paymentStatus;
+    }
+
+    public String getPaymentReference() {
+        return paymentReference;
     }
 
     public LocalDate getGeneratedOn() {

@@ -26,11 +26,12 @@ public final class DatabaseService {
 
             ArrayList<Room> rooms = bookingSystem.getRoomsSnapshot();
             HashMap<Integer, String> bookings = bookingSystem.getRoomToCustomerSnapshot();
+            HashMap<Integer, String> customerPhones = bookingSystem.getCustomerPhoneSnapshot();
             HashMap<Integer, Pair<LocalDate, LocalDate>> bookingDates = bookingSystem.getBookingDatesSnapshot();
             ArrayList<BillingRecord> billingRecords = bookingSystem.getBillingRecordsSnapshot();
 
             saveRooms(connection, rooms);
-            saveBookings(connection, bookings, bookingDates);
+            saveBookings(connection, bookings, customerPhones, bookingDates);
             saveBillingRecords(connection, billingRecords);
 
             connection.commit();
@@ -48,10 +49,11 @@ public final class DatabaseService {
 
             ArrayList<Room> loadedRooms = loadRooms(connection);
             HashMap<Integer, String> loadedBookings = loadBookings(connection);
+            HashMap<Integer, String> loadedCustomerPhones = loadCustomerPhones(connection);
             HashMap<Integer, Pair<LocalDate, LocalDate>> loadedBookingDates = loadBookingDates(connection);
             ArrayList<BillingRecord> loadedBillingRecords = loadBillingRecords(connection);
 
-            bookingSystem.loadSnapshot(loadedRooms, loadedBookings, loadedBookingDates, loadedBillingRecords);
+            bookingSystem.loadSnapshot(loadedRooms, loadedBookings, loadedCustomerPhones, loadedBookingDates, loadedBillingRecords);
             return "Data loaded from JDBC database successfully.";
         } catch (SQLException exception) {
             return "Error loading JDBC data: " + exception.getMessage();
@@ -73,6 +75,7 @@ public final class DatabaseService {
                     CREATE TABLE IF NOT EXISTS bookings (
                         room_number INTEGER PRIMARY KEY,
                         customer_name TEXT NOT NULL,
+                        customer_phone TEXT NOT NULL DEFAULT '-',
                         check_in_date TEXT,
                         check_out_date TEXT
                     )
@@ -93,13 +96,16 @@ public final class DatabaseService {
                         billing_status TEXT NOT NULL,
                         payment_method TEXT NOT NULL DEFAULT '-',
                         payment_status TEXT NOT NULL DEFAULT 'Pending',
+                        payment_reference TEXT NOT NULL DEFAULT '-',
                         generated_on TEXT
                     )
                     """);
         }
 
-        ensureBillingColumn(connection, "payment_method", "TEXT NOT NULL DEFAULT '-'");
-        ensureBillingColumn(connection, "payment_status", "TEXT NOT NULL DEFAULT 'Pending'");
+        ensureColumn(connection, "bookings", "customer_phone", "TEXT NOT NULL DEFAULT '-'");
+        ensureColumn(connection, "billing_records", "payment_method", "TEXT NOT NULL DEFAULT '-'");
+        ensureColumn(connection, "billing_records", "payment_status", "TEXT NOT NULL DEFAULT 'Pending'");
+        ensureColumn(connection, "billing_records", "payment_reference", "TEXT NOT NULL DEFAULT '-'");
     }
 
     private static void clearTables(Connection connection) throws SQLException {
@@ -127,15 +133,17 @@ public final class DatabaseService {
     private static void saveBookings(
             Connection connection,
             HashMap<Integer, String> bookings,
+            HashMap<Integer, String> customerPhones,
             HashMap<Integer, Pair<LocalDate, LocalDate>> bookingDates) throws SQLException {
         try (PreparedStatement statement = connection.prepareStatement(
-                "INSERT INTO bookings (room_number, customer_name, check_in_date, check_out_date) VALUES (?, ?, ?, ?)")) {
+                "INSERT INTO bookings (room_number, customer_name, customer_phone, check_in_date, check_out_date) VALUES (?, ?, ?, ?, ?)")) {
             for (Integer roomNumber : bookings.keySet()) {
                 Pair<LocalDate, LocalDate> dates = bookingDates.get(roomNumber);
                 statement.setInt(1, roomNumber);
                 statement.setString(2, bookings.get(roomNumber));
-                statement.setString(3, dates == null || dates.getFirst() == null ? null : dates.getFirst().toString());
-                statement.setString(4, dates == null || dates.getSecond() == null ? null : dates.getSecond().toString());
+                statement.setString(3, customerPhones.getOrDefault(roomNumber, "-"));
+                statement.setString(4, dates == null || dates.getFirst() == null ? null : dates.getFirst().toString());
+                statement.setString(5, dates == null || dates.getSecond() == null ? null : dates.getSecond().toString());
                 statement.addBatch();
             }
             statement.executeBatch();
@@ -158,8 +166,9 @@ public final class DatabaseService {
                     billing_status,
                     payment_method,
                     payment_status,
+                    payment_reference,
                     generated_on
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """)) {
             for (BillingRecord record : billingRecords) {
                 statement.setString(1, record.getInvoiceNumber());
@@ -175,7 +184,8 @@ public final class DatabaseService {
                 statement.setString(11, record.getBillingStatus());
                 statement.setString(12, record.getPaymentMethod());
                 statement.setString(13, record.getPaymentStatus());
-                statement.setString(14, record.getGeneratedOn() == null ? null : record.getGeneratedOn().toString());
+                statement.setString(14, record.getPaymentReference());
+                statement.setString(15, record.getGeneratedOn() == null ? null : record.getGeneratedOn().toString());
                 statement.addBatch();
             }
             statement.executeBatch();
@@ -193,9 +203,7 @@ public final class DatabaseService {
                 Double price = resultSet.getDouble("price");
                 Boolean available = resultSet.getInt("available") == 1;
 
-                Room room = roomType == RoomType.STANDARD
-                        ? new StandardRoom(roomNumber, price, available)
-                        : new DeluxeRoom(roomNumber, price, available);
+                Room room = createRoomByType(roomType, roomNumber, price, available);
                 loadedRooms.add(room);
             }
         }
@@ -214,6 +222,19 @@ public final class DatabaseService {
         }
 
         return loadedBookings;
+    }
+
+    private static HashMap<Integer, String> loadCustomerPhones(Connection connection) throws SQLException {
+        HashMap<Integer, String> loadedCustomerPhones = new HashMap<>();
+
+        try (Statement statement = connection.createStatement();
+             ResultSet resultSet = statement.executeQuery("SELECT room_number, customer_phone FROM bookings")) {
+            while (resultSet.next()) {
+                loadedCustomerPhones.put(resultSet.getInt("room_number"), resultSet.getString("customer_phone"));
+            }
+        }
+
+        return loadedCustomerPhones;
     }
 
     private static HashMap<Integer, Pair<LocalDate, LocalDate>> loadBookingDates(Connection connection) throws SQLException {
@@ -238,7 +259,7 @@ public final class DatabaseService {
              ResultSet resultSet = statement.executeQuery("""
                      SELECT invoice_number, room_number, customer_name, room_type, check_in_date, check_out_date,
                             nights, room_charge, service_charge, total_amount, billing_status, payment_method,
-                            payment_status, generated_on
+                            payment_status, payment_reference, generated_on
                      FROM billing_records
                      ORDER BY generated_on DESC, invoice_number DESC
                      """)) {
@@ -257,6 +278,7 @@ public final class DatabaseService {
                         resultSet.getString("billing_status"),
                         resultSet.getString("payment_method"),
                         resultSet.getString("payment_status"),
+                        resultSet.getString("payment_reference"),
                         parseDate(resultSet.getString("generated_on"))));
             }
         }
@@ -264,10 +286,10 @@ public final class DatabaseService {
         return loadedBillingRecords;
     }
 
-    private static void ensureBillingColumn(Connection connection, String columnName, String definition) throws SQLException {
+    private static void ensureColumn(Connection connection, String tableName, String columnName, String definition) throws SQLException {
         Set<String> columnNames = new HashSet<>();
         try (Statement statement = connection.createStatement();
-             ResultSet resultSet = statement.executeQuery("PRAGMA table_info(billing_records)")) {
+             ResultSet resultSet = statement.executeQuery("PRAGMA table_info(" + tableName + ")")) {
             while (resultSet.next()) {
                 columnNames.add(resultSet.getString("name"));
             }
@@ -275,9 +297,18 @@ public final class DatabaseService {
 
         if (!columnNames.contains(columnName)) {
             try (Statement statement = connection.createStatement()) {
-                statement.execute("ALTER TABLE billing_records ADD COLUMN " + columnName + " " + definition);
+                statement.execute("ALTER TABLE " + tableName + " ADD COLUMN " + columnName + " " + definition);
             }
         }
+    }
+
+    private static Room createRoomByType(RoomType roomType, Integer roomNumber, Double price, Boolean available) {
+        return switch (roomType) {
+            case STANDARD -> new StandardRoom(roomNumber, price, available);
+            case DELUXE -> new DeluxeRoom(roomNumber, price, available);
+            case SUITE -> new SuiteRoom(roomNumber, price, available);
+            case VILLA -> new VillaRoom(roomNumber, price, available);
+        };
     }
 
     private static LocalDate parseDate(String dateValue) {

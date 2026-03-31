@@ -45,6 +45,9 @@ public class BillingController {
     private TableColumn<BillingRecord, String> paymentStatusColumn;
 
     @FXML
+    private TableColumn<BillingRecord, String> paymentReferenceColumn;
+
+    @FXML
     private TableColumn<BillingRecord, Integer> nightsColumn;
 
     @FXML
@@ -71,6 +74,7 @@ public class BillingController {
         statusColumn.setCellValueFactory(new PropertyValueFactory<>("billingStatus"));
         paymentMethodColumn.setCellValueFactory(new PropertyValueFactory<>("paymentMethod"));
         paymentStatusColumn.setCellValueFactory(new PropertyValueFactory<>("paymentStatus"));
+        paymentReferenceColumn.setCellValueFactory(new PropertyValueFactory<>("paymentReference"));
         nightsColumn.setCellValueFactory(new PropertyValueFactory<>("nights"));
         totalColumn.setCellValueFactory(new PropertyValueFactory<>("totalAmountText"));
         checkInColumn.setCellValueFactory(new PropertyValueFactory<>("checkInText"));

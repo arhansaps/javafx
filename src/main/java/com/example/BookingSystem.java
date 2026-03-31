@@ -25,6 +25,7 @@ public class BookingSystem {
         private final Double price;
         private final Boolean available;
         private final String customerName;
+        private final String customerPhone;
         private final LocalDate checkInDate;
         private final LocalDate checkOutDate;
 
@@ -34,6 +35,7 @@ public class BookingSystem {
                 Double price,
                 Boolean available,
                 String customerName,
+                String customerPhone,
                 LocalDate checkInDate,
                 LocalDate checkOutDate) {
             this.roomNumber = roomNumber;
@@ -41,6 +43,7 @@ public class BookingSystem {
             this.price = price;
             this.available = available;
             this.customerName = customerName;
+            this.customerPhone = customerPhone;
             this.checkInDate = checkInDate;
             this.checkOutDate = checkOutDate;
         }
@@ -69,6 +72,10 @@ public class BookingSystem {
             return customerName;
         }
 
+        public String getCustomerPhone() {
+            return customerPhone;
+        }
+
         public String getCheckInText() {
             return checkInDate == null ? "-" : checkInDate.format(DATE_FORMATTER);
         }
@@ -81,6 +88,7 @@ public class BookingSystem {
     // Demonstrating collections: ArrayList and HashMap
     private final ArrayList<Room> rooms = new ArrayList<>();
     private final HashMap<Integer, String> roomToCustomerMap = new HashMap<>();
+    private final HashMap<Integer, String> roomToCustomerPhoneMap = new HashMap<>();
     private final HashMap<Integer, Pair<LocalDate, LocalDate>> roomBookingDatesMap = new HashMap<>();
     private final ArrayList<BillingRecord> billingRecords = new ArrayList<>();
     private Integer nextInvoiceNumber = 1001;
@@ -105,6 +113,7 @@ public class BookingSystem {
         while (iterator.hasNext()) {
             Room room = iterator.next();
             String customerName = roomToCustomerMap.get(room.getRoomNumber());
+            String customerPhone = roomToCustomerPhoneMap.get(room.getRoomNumber());
             Pair<LocalDate, LocalDate> bookingDates = roomBookingDatesMap.get(room.getRoomNumber());
 
             builder.append("Room ")
@@ -119,6 +128,8 @@ public class BookingSystem {
                 builder.append("Booked")
                         .append(" | Guest: ")
                         .append(customerName)
+                        .append(" | Phone: ")
+                        .append(customerPhone == null ? "-" : customerPhone)
                         .append(" | Check-in: ")
                         .append(bookingDates.getFirst().format(DATE_FORMATTER))
                         .append(" | Checkout: ")
@@ -147,6 +158,7 @@ public class BookingSystem {
             // Demonstrating generics class Pair<T, U>
             Pair<Integer, String> pair = new Pair<>(entry.getKey(), entry.getValue());
             Pair<LocalDate, LocalDate> datePair = roomBookingDatesMap.get(entry.getKey());
+            String customerPhone = roomToCustomerPhoneMap.getOrDefault(entry.getKey(), "-");
 
             String fromDate = "-";
             String toDate = "-";
@@ -169,6 +181,8 @@ public class BookingSystem {
                     .append(Pair.displayValue(pair.getFirst()))
                     .append(" -> ")
                     .append(pair.getSecond())
+                    .append(" | Phone: ")
+                    .append(customerPhone)
                     .append(" | From: ")
                     .append(fromDate)
                     .append(" | To: ")
@@ -216,6 +230,7 @@ public class BookingSystem {
         while (iterator.hasNext()) {
             Room room = iterator.next();
             String customerName = roomToCustomerMap.getOrDefault(room.getRoomNumber(), "-");
+            String customerPhone = roomToCustomerPhoneMap.getOrDefault(room.getRoomNumber(), "-");
             Pair<LocalDate, LocalDate> bookingDates = roomBookingDatesMap.get(room.getRoomNumber());
 
             LocalDate checkInDate = null;
@@ -231,6 +246,7 @@ public class BookingSystem {
                     room.calculatePrice(),
                     room.getAvailable(),
                     customerName,
+                    customerPhone,
                     checkInDate,
                     checkOutDate));
         }
@@ -240,13 +256,19 @@ public class BookingSystem {
     // Demonstrating synchronization
     public synchronized String bookRoom(
             String customerName,
+            String customerPhone,
             Integer roomNumber,
             LocalDate checkInDate,
             LocalDate checkOutDate,
-            PaymentMethod paymentMethod) {
+            PaymentMethod paymentMethod,
+            String paymentReference) {
         Room room = findRoomByNumber(roomNumber);
         if (room == null) {
             return "Room not found.";
+        }
+
+        if (customerPhone == null || customerPhone.isBlank()) {
+            return "Enter customer phone number.";
         }
 
         if (checkInDate == null || checkOutDate == null) {
@@ -267,6 +289,7 @@ public class BookingSystem {
 
         room.setAvailable(Boolean.FALSE);
         roomToCustomerMap.put(roomNumber, customerName);
+        roomToCustomerPhoneMap.put(roomNumber, customerPhone);
         roomBookingDatesMap.put(roomNumber, new Pair<>(checkInDate, checkOutDate));
         BillingRecord billingRecord = BillingRecord.createActiveRecord(
                 generateInvoiceNumber(),
@@ -274,7 +297,8 @@ public class BookingSystem {
                 customerName,
                 checkInDate,
                 checkOutDate,
-                paymentMethod);
+                paymentMethod,
+                paymentReference);
         billingRecords.add(billingRecord);
 
         Pair<Integer, String> bookingPair = new Pair<>(roomNumber, customerName);
@@ -295,10 +319,12 @@ public class BookingSystem {
 
     public void bookRoomAsync(
             String customerName,
+            String customerPhone,
             Integer roomNumber,
             LocalDate checkInDate,
             LocalDate checkOutDate,
             PaymentMethod paymentMethod,
+            String paymentReference,
             Consumer<String> callback) {
         // Demonstrating multithreading
         Thread bookingThread = new Thread(() -> {
@@ -307,7 +333,7 @@ public class BookingSystem {
             } catch (InterruptedException exception) {
                 Thread.currentThread().interrupt();
             }
-            String result = bookRoom(customerName, roomNumber, checkInDate, checkOutDate, paymentMethod);
+            String result = bookRoom(customerName, customerPhone, roomNumber, checkInDate, checkOutDate, paymentMethod, paymentReference);
             callback.accept(result);
         });
         bookingThread.start();
@@ -325,6 +351,7 @@ public class BookingSystem {
 
         room.setAvailable(Boolean.TRUE);
         roomToCustomerMap.remove(roomNumber);
+        roomToCustomerPhoneMap.remove(roomNumber);
         roomBookingDatesMap.remove(roomNumber);
         closeBillingRecord(roomNumber);
         return "Checkout complete. Cleaning started for room " + roomNumber + ".";
@@ -370,6 +397,7 @@ public class BookingSystem {
         try (FileReader reader = new FileReader(filePath); BufferedReader bufferedReader = new BufferedReader(reader)) {
             rooms.clear();
             roomToCustomerMap.clear();
+            roomToCustomerPhoneMap.clear();
             roomBookingDatesMap.clear();
             billingRecords.clear();
             nextInvoiceNumber = 1001;
@@ -386,11 +414,7 @@ public class BookingSystem {
                 Double price = Double.valueOf(parts[2].trim());
                 Boolean available = Boolean.valueOf(parts[3].trim());
 
-                if (roomType == RoomType.STANDARD) {
-                    rooms.add(new StandardRoom(roomNumber, price, available));
-                } else {
-                    rooms.add(new DeluxeRoom(roomNumber, price, available));
-                }
+                rooms.add(createRoomByType(roomType, roomNumber, price, available));
             }
             return "Room data loaded from text file.";
         } catch (IOException | IllegalArgumentException exception) {
@@ -416,6 +440,7 @@ public class BookingSystem {
             if (object instanceof ArrayList<?>) {
                 rooms.clear();
                 roomToCustomerMap.clear();
+                roomToCustomerPhoneMap.clear();
                 roomBookingDatesMap.clear();
                 billingRecords.clear();
                 nextInvoiceNumber = 1001;
@@ -436,9 +461,7 @@ public class BookingSystem {
     public synchronized ArrayList<Room> getRoomsSnapshot() {
         ArrayList<Room> snapshot = new ArrayList<>();
         for (Room room : rooms) {
-            Room copy = room.getRoomType() == RoomType.STANDARD
-                    ? new StandardRoom(room.getRoomNumber(), room.getPrice(), room.getAvailable())
-                    : new DeluxeRoom(room.getRoomNumber(), room.getPrice(), room.getAvailable());
+            Room copy = createRoomByType(room.getRoomType(), room.getRoomNumber(), room.getPrice(), room.getAvailable());
             snapshot.add(copy);
         }
         return snapshot;
@@ -446,6 +469,10 @@ public class BookingSystem {
 
     public synchronized HashMap<Integer, String> getRoomToCustomerSnapshot() {
         return new HashMap<>(roomToCustomerMap);
+    }
+
+    public synchronized HashMap<Integer, String> getCustomerPhoneSnapshot() {
+        return new HashMap<>(roomToCustomerPhoneMap);
     }
 
     public synchronized HashMap<Integer, Pair<LocalDate, LocalDate>> getBookingDatesSnapshot() {
@@ -459,6 +486,7 @@ public class BookingSystem {
     public synchronized void loadSnapshot(
             ArrayList<Room> loadedRooms,
             HashMap<Integer, String> loadedRoomCustomers,
+            HashMap<Integer, String> loadedCustomerPhones,
             HashMap<Integer, Pair<LocalDate, LocalDate>> loadedBookingDates,
             ArrayList<BillingRecord> loadedBillingRecords) {
         rooms.clear();
@@ -466,6 +494,9 @@ public class BookingSystem {
 
         roomToCustomerMap.clear();
         roomToCustomerMap.putAll(loadedRoomCustomers);
+
+        roomToCustomerPhoneMap.clear();
+        roomToCustomerPhoneMap.putAll(loadedCustomerPhones);
 
         roomBookingDatesMap.clear();
         roomBookingDatesMap.putAll(loadedBookingDates);
@@ -522,5 +553,14 @@ public class BookingSystem {
             }
         }
         nextInvoiceNumber = maxInvoiceNumber + 1;
+    }
+
+    private Room createRoomByType(RoomType roomType, Integer roomNumber, Double price, Boolean available) {
+        return switch (roomType) {
+            case STANDARD -> new StandardRoom(roomNumber, price, available);
+            case DELUXE -> new DeluxeRoom(roomNumber, price, available);
+            case SUITE -> new SuiteRoom(roomNumber, price, available);
+            case VILLA -> new VillaRoom(roomNumber, price, available);
+        };
     }
 }

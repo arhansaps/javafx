@@ -1,10 +1,15 @@
+com\example\SuiteRoom.class
+com\example\VillaRoom.class
 com\example\StandardRoom.class
 com\example\MainApp.class
 com\example\Amenities.class
 com\example\BillingController.class
+com\example\DatabaseService$1.class
 com\example\DatabaseService.class
+com\example\MainApp$1.class
 com\example\RoomType.class
 com\example\Room.class
+com\example\BookingSystem$1.class
 com\example\BillingRecord.class
 com\example\PaymentMethod.class
 com\example\Pair.class

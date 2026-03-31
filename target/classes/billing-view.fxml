@@ -18,10 +18,10 @@
         <Insets top="12" right="12" bottom="12" left="12" />
     </padding>
 
-    <Label text="Billing Management" styleClass="section-title" />
-    <Label text="Scene Builder compatible FXML view for invoices, revenue tracking, and billing status." styleClass="dashboard-hint" />
+    <Label text="Billing Management" styleClass="page-title" />
+    <Label text="Track invoice flow, payment state, and revenue collection from the same premium billing register." styleClass="page-copy" />
 
-    <GridPane hgap="10" vgap="10" styleClass="section-card">
+    <GridPane hgap="10" vgap="10" styleClass="section-card summary-card">
         <HBox spacing="6" styleClass="stat-card">
             <VBox spacing="4">
                 <Label text="Total Invoices" styleClass="stat-title" />
@@ -46,7 +46,7 @@
         <Button text="Refresh Billing" onAction="#handleRefreshBilling" styleClass="secondary-button" />
     </HBox>
 
-    <VBox spacing="8" styleClass="section-card">
+    <VBox spacing="8" styleClass="section-card table-card">
         <Label text="Invoice Register" styleClass="section-title" />
         <TableView fx:id="billingTable" prefHeight="360">
             <columns>
@@ -57,6 +57,7 @@
                 <TableColumn fx:id="statusColumn" text="Status" prefWidth="90" />
                 <TableColumn fx:id="paymentMethodColumn" text="Payment" prefWidth="100" />
                 <TableColumn fx:id="paymentStatusColumn" text="Pay Status" prefWidth="100" />
+                <TableColumn fx:id="paymentReferenceColumn" text="Reference" prefWidth="150" />
                 <TableColumn fx:id="nightsColumn" text="Nights" prefWidth="75" />
                 <TableColumn fx:id="totalColumn" text="Total" prefWidth="100" />
                 <TableColumn fx:id="checkInColumn" text="Check-in" prefWidth="110" />
