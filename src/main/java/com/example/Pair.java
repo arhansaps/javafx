@@ -1,6 +1,10 @@
 package com.example;
 
-public class Pair<T, U> {
+import java.io.Serializable;
+
+public class Pair<T, U> implements Serializable {
+    private static final long serialVersionUID = 1L;
+
     private final T first;
     private final U second;
 

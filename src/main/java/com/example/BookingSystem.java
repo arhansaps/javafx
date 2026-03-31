@@ -8,9 +8,12 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.io.Serializable;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
@@ -19,11 +22,40 @@ import java.util.function.Consumer;
 public class BookingSystem {
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("dd MMM yyyy");
 
+    private static class SnapshotData implements Serializable {
+        private static final long serialVersionUID = 1L;
+
+        private final ArrayList<Room> rooms;
+        private final HashMap<Integer, String> roomCustomers;
+        private final HashMap<Integer, String> customerPhones;
+        private final HashMap<Integer, Pair<LocalDate, LocalDate>> bookingDates;
+        private final HashMap<Integer, OperationalStatus> operationalStatuses;
+        private final ArrayList<OperationTask> operationTasks;
+        private final ArrayList<BillingRecord> billingRecords;
+
+        private SnapshotData(
+                ArrayList<Room> rooms,
+                HashMap<Integer, String> roomCustomers,
+                HashMap<Integer, String> customerPhones,
+                HashMap<Integer, Pair<LocalDate, LocalDate>> bookingDates,
+                HashMap<Integer, OperationalStatus> operationalStatuses,
+                ArrayList<OperationTask> operationTasks,
+                ArrayList<BillingRecord> billingRecords) {
+            this.rooms = rooms;
+            this.roomCustomers = roomCustomers;
+            this.customerPhones = customerPhones;
+            this.bookingDates = bookingDates;
+            this.operationalStatuses = operationalStatuses;
+            this.operationTasks = operationTasks;
+            this.billingRecords = billingRecords;
+        }
+    }
+
     public static class ReportRow {
         private final Integer roomNumber;
         private final String roomType;
         private final Double price;
-        private final Boolean available;
+        private final OperationalStatus operationalStatus;
         private final String customerName;
         private final String customerPhone;
         private final LocalDate checkInDate;
@@ -33,7 +65,7 @@ public class BookingSystem {
                 Integer roomNumber,
                 String roomType,
                 Double price,
-                Boolean available,
+                OperationalStatus operationalStatus,
                 String customerName,
                 String customerPhone,
                 LocalDate checkInDate,
@@ -41,7 +73,7 @@ public class BookingSystem {
             this.roomNumber = roomNumber;
             this.roomType = roomType;
             this.price = price;
-            this.available = available;
+            this.operationalStatus = operationalStatus;
             this.customerName = customerName;
             this.customerPhone = customerPhone;
             this.checkInDate = checkInDate;
@@ -60,12 +92,12 @@ public class BookingSystem {
             return price;
         }
 
-        public Boolean getAvailable() {
-            return available;
+        public OperationalStatus getOperationalStatus() {
+            return operationalStatus;
         }
 
         public String getStatusText() {
-            return Boolean.TRUE.equals(available) ? "Available" : "Occupied";
+            return operationalStatus == null ? "-" : operationalStatus.getDisplayName();
         }
 
         public String getCustomerName() {
@@ -85,20 +117,24 @@ public class BookingSystem {
         }
     }
 
-    // Demonstrating collections: ArrayList and HashMap
     private final ArrayList<Room> rooms = new ArrayList<>();
     private final HashMap<Integer, String> roomToCustomerMap = new HashMap<>();
     private final HashMap<Integer, String> roomToCustomerPhoneMap = new HashMap<>();
     private final HashMap<Integer, Pair<LocalDate, LocalDate>> roomBookingDatesMap = new HashMap<>();
+    private final HashMap<Integer, OperationalStatus> roomOperationalStatusMap = new HashMap<>();
+    private final ArrayList<OperationTask> operationTasks = new ArrayList<>();
     private final ArrayList<BillingRecord> billingRecords = new ArrayList<>();
     private Integer nextInvoiceNumber = 1001;
+    private Integer nextTaskId = 1;
 
     public String addRoom(Room room) {
         if (findRoomByNumber(room.getRoomNumber()) != null) {
             return "Room already exists.";
         }
+
         room.setPrice(room.calculatePrice());
         rooms.add(room);
+        roomOperationalStatusMap.put(room.getRoomNumber(), deriveInitialStatus(room.getAvailable()));
         return "Room added successfully.";
     }
 
@@ -108,13 +144,13 @@ public class BookingSystem {
         }
 
         StringBuilder builder = new StringBuilder();
-        // Demonstrating Iterator traversal
         Iterator<Room> iterator = rooms.iterator();
         while (iterator.hasNext()) {
             Room room = iterator.next();
             String customerName = roomToCustomerMap.get(room.getRoomNumber());
             String customerPhone = roomToCustomerPhoneMap.get(room.getRoomNumber());
             Pair<LocalDate, LocalDate> bookingDates = roomBookingDatesMap.get(room.getRoomNumber());
+            OperationalStatus operationalStatus = getOperationalStatusForRoom(room.getRoomNumber());
 
             builder.append("Room ")
                     .append(room.getRoomNumber())
@@ -122,11 +158,11 @@ public class BookingSystem {
                     .append(room.getRoomType())
                     .append(" | Price: ")
                     .append(String.format("%.2f", room.calculatePrice()))
-                    .append(" | Status: ");
+                    .append(" | Status: ")
+                    .append(operationalStatus.getDisplayName());
 
-            if (customerName != null && bookingDates != null && !Boolean.TRUE.equals(room.getAvailable())) {
-                builder.append("Booked")
-                        .append(" | Guest: ")
+            if (customerName != null && bookingDates != null && operationalStatus == OperationalStatus.OCCUPIED) {
+                builder.append(" | Guest: ")
                         .append(customerName)
                         .append(" | Phone: ")
                         .append(customerPhone == null ? "-" : customerPhone)
@@ -134,16 +170,18 @@ public class BookingSystem {
                         .append(bookingDates.getFirst().format(DATE_FORMATTER))
                         .append(" | Checkout: ")
                         .append(bookingDates.getSecond().format(DATE_FORMATTER));
-            } else if (!Boolean.TRUE.equals(room.getAvailable())) {
-                builder.append("Not Available");
-            } else {
-                builder.append("Available");
             }
 
-            builder.append(" | Amenities: ")
-                    .append(room.getAmenities());
+            long openTaskCount = operationTasks.stream()
+                    .filter(task -> task.getRoomNumber().equals(room.getRoomNumber()))
+                    .filter(task -> task.getTaskState() != TaskState.COMPLETED)
+                    .count();
 
-            builder.append(System.lineSeparator());
+            builder.append(" | Open Tasks: ")
+                    .append(openTaskCount)
+                    .append(" | Amenities: ")
+                    .append(room.getAmenities())
+                    .append(System.lineSeparator());
         }
         return builder.toString();
     }
@@ -155,7 +193,6 @@ public class BookingSystem {
 
         StringBuilder builder = new StringBuilder();
         for (Map.Entry<Integer, String> entry : roomToCustomerMap.entrySet()) {
-            // Demonstrating generics class Pair<T, U>
             Pair<Integer, String> pair = new Pair<>(entry.getKey(), entry.getValue());
             Pair<LocalDate, LocalDate> datePair = roomBookingDatesMap.get(entry.getKey());
             String customerPhone = roomToCustomerPhoneMap.getOrDefault(entry.getKey(), "-");
@@ -198,9 +235,9 @@ public class BookingSystem {
     }
 
     public synchronized Integer getAvailableRoomsCount() {
-        Integer count = 0;
+        int count = 0;
         for (Room room : rooms) {
-            if (Boolean.TRUE.equals(room.getAvailable())) {
+            if (getOperationalStatusForRoom(room.getRoomNumber()).isSellable()) {
                 count++;
             }
         }
@@ -208,11 +245,37 @@ public class BookingSystem {
     }
 
     public synchronized Integer getOccupiedRoomsCount() {
-        return getTotalRooms() - getAvailableRoomsCount();
+        int count = 0;
+        for (Room room : rooms) {
+            if (getOperationalStatusForRoom(room.getRoomNumber()) == OperationalStatus.OCCUPIED) {
+                count++;
+            }
+        }
+        return count;
     }
 
     public synchronized Integer getActiveBookingsCount() {
         return roomToCustomerMap.size();
+    }
+
+    public synchronized Integer getOperationalStatusCount(OperationalStatus operationalStatus) {
+        int count = 0;
+        for (Room room : rooms) {
+            if (getOperationalStatusForRoom(room.getRoomNumber()) == operationalStatus) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    public synchronized Integer getTaskCount(TaskState taskState) {
+        int count = 0;
+        for (OperationTask task : operationTasks) {
+            if (task.getTaskState() == taskState) {
+                count++;
+            }
+        }
+        return count;
     }
 
     public synchronized Double getOccupancyRate() {
@@ -225,7 +288,6 @@ public class BookingSystem {
     public synchronized ArrayList<ReportRow> getDetailedRoomReport() {
         ArrayList<ReportRow> reportRows = new ArrayList<>();
 
-        // Demonstrating Iterator traversal for report generation
         Iterator<Room> iterator = rooms.iterator();
         while (iterator.hasNext()) {
             Room room = iterator.next();
@@ -244,7 +306,7 @@ public class BookingSystem {
                     room.getRoomNumber(),
                     room.getRoomType().name(),
                     room.calculatePrice(),
-                    room.getAvailable(),
+                    getOperationalStatusForRoom(room.getRoomNumber()),
                     customerName,
                     customerPhone,
                     checkInDate,
@@ -253,7 +315,6 @@ public class BookingSystem {
         return reportRows;
     }
 
-    // Demonstrating synchronization
     public synchronized String bookRoom(
             String customerName,
             String customerPhone,
@@ -283,14 +344,15 @@ public class BookingSystem {
             return "Select a payment method.";
         }
 
-        if (!room.getAvailable()) {
-            return "Room is not available.";
+        if (!getOperationalStatusForRoom(roomNumber).isSellable()) {
+            return "Room is not available for booking.";
         }
 
-        room.setAvailable(Boolean.FALSE);
         roomToCustomerMap.put(roomNumber, customerName);
         roomToCustomerPhoneMap.put(roomNumber, customerPhone);
         roomBookingDatesMap.put(roomNumber, new Pair<>(checkInDate, checkOutDate));
+        setRoomOperationalStatusInternal(room, OperationalStatus.OCCUPIED);
+
         BillingRecord billingRecord = BillingRecord.createActiveRecord(
                 generateInvoiceNumber(),
                 room,
@@ -326,7 +388,6 @@ public class BookingSystem {
             PaymentMethod paymentMethod,
             String paymentReference,
             Consumer<String> callback) {
-        // Demonstrating multithreading
         Thread bookingThread = new Thread(() -> {
             try {
                 Thread.sleep(1200);
@@ -339,52 +400,191 @@ public class BookingSystem {
         bookingThread.start();
     }
 
-    public String checkoutRoom(Integer roomNumber) {
+    public synchronized String checkoutRoom(Integer roomNumber) {
         Room room = findRoomByNumber(roomNumber);
         if (room == null) {
             return "Room not found.";
         }
 
-        if (room.getAvailable()) {
+        if (!roomToCustomerMap.containsKey(roomNumber)) {
             return "Room is already available.";
         }
 
-        room.setAvailable(Boolean.TRUE);
         roomToCustomerMap.remove(roomNumber);
         roomToCustomerPhoneMap.remove(roomNumber);
         roomBookingDatesMap.remove(roomNumber);
+        setRoomOperationalStatusInternal(room, OperationalStatus.DIRTY);
+        createAutomaticTask(roomNumber, TaskCategory.HOUSEKEEPING, "Housekeeping Team", "Post-checkout turnover cleaning");
         closeBillingRecord(roomNumber);
-        return "Checkout complete. Cleaning started for room " + roomNumber + ".";
+        return "Checkout complete. Room " + roomNumber + " marked Dirty and sent to housekeeping queue.";
     }
 
     public void checkoutRoomAsync(Integer roomNumber, Consumer<String> callback) {
-        // Demonstrating multithreading
         Thread checkoutThread = new Thread(() -> {
             String result = checkoutRoom(roomNumber);
             callback.accept(result);
 
-            // Room cleaning simulation with delay
-            Thread cleaningThread = new Thread(() -> {
+            Thread housekeepingDispatchThread = new Thread(() -> {
                 try {
-                    Thread.sleep(2000);
-                    callback.accept("Room " + roomNumber + " cleaning completed.");
+                    Thread.sleep(1200);
+                    callback.accept("Room " + roomNumber + " is now visible on the housekeeping command board.");
                 } catch (InterruptedException exception) {
                     Thread.currentThread().interrupt();
                 }
             });
-            cleaningThread.start();
+            housekeepingDispatchThread.start();
         });
         checkoutThread.start();
     }
 
+    public synchronized String updateRoomOperationalStatus(Integer roomNumber, OperationalStatus status, String staffName, String notes) {
+        Room room = findRoomByNumber(roomNumber);
+        if (room == null) {
+            return "Room not found.";
+        }
+
+        if (status == null) {
+            return "Select an operational status.";
+        }
+
+        if (roomToCustomerMap.containsKey(roomNumber) && status != OperationalStatus.OCCUPIED) {
+            return "Booked rooms cannot move to " + status.getDisplayName() + " until checkout.";
+        }
+
+        setRoomOperationalStatusInternal(room, status);
+
+        String normalizedStaff = staffName == null ? "" : staffName.trim();
+        String normalizedNotes = notes == null ? "" : notes.trim();
+        if (!normalizedStaff.isEmpty() && !normalizedNotes.isEmpty()) {
+            TaskCategory category = status == OperationalStatus.MAINTENANCE || status == OperationalStatus.OUT_OF_ORDER
+                    ? TaskCategory.MAINTENANCE
+                    : TaskCategory.HOUSEKEEPING;
+            createAutomaticTask(roomNumber, category, normalizedStaff, normalizedNotes);
+        }
+
+        return "Room " + roomNumber + " updated to " + status.getDisplayName() + ".";
+    }
+
+    public synchronized String createOperationTask(Integer roomNumber, TaskCategory category, String assignedTo, String notes) {
+        Room room = findRoomByNumber(roomNumber);
+        if (room == null) {
+            return "Room not found.";
+        }
+
+        if (category == null) {
+            return "Select a task category.";
+        }
+
+        String staffName = assignedTo == null ? "" : assignedTo.trim();
+        if (staffName.isEmpty()) {
+            return "Enter the staff member name.";
+        }
+
+        String taskNotes = notes == null || notes.trim().isEmpty()
+                ? defaultTaskNote(category, roomNumber)
+                : notes.trim();
+
+        OperationTask task = new OperationTask(
+                nextTaskId++,
+                roomNumber,
+                category,
+                staffName,
+                taskNotes,
+                LocalDateTime.now(),
+                TaskState.OPEN,
+                null);
+        operationTasks.add(task);
+
+        if (!roomToCustomerMap.containsKey(roomNumber)) {
+            setRoomOperationalStatusInternal(room, category == TaskCategory.HOUSEKEEPING ? OperationalStatus.CLEANING : OperationalStatus.MAINTENANCE);
+        }
+
+        return category.getDisplayName() + " task created for room " + roomNumber + ".";
+    }
+
+    public synchronized String markTaskInProgress(Integer taskId) {
+        OperationTask task = findTaskById(taskId);
+        if (task == null) {
+            return "Task not found.";
+        }
+
+        if (task.getTaskState() == TaskState.COMPLETED) {
+            return "Task is already completed.";
+        }
+
+        replaceTask(task.markInProgress());
+
+        Room room = findRoomByNumber(task.getRoomNumber());
+        if (room != null && !roomToCustomerMap.containsKey(task.getRoomNumber())) {
+            setRoomOperationalStatusInternal(room, task.getCategory() == TaskCategory.HOUSEKEEPING ? OperationalStatus.CLEANING : OperationalStatus.MAINTENANCE);
+        }
+
+        return "Task #" + taskId + " moved to In Progress.";
+    }
+
+    public synchronized String completeTask(Integer taskId) {
+        OperationTask task = findTaskById(taskId);
+        if (task == null) {
+            return "Task not found.";
+        }
+
+        OperationTask completedTask = task.markCompleted();
+        replaceTask(completedTask);
+
+        Room room = findRoomByNumber(task.getRoomNumber());
+        if (room != null && !roomToCustomerMap.containsKey(task.getRoomNumber())) {
+            setRoomOperationalStatusInternal(room, OperationalStatus.VACANT_CLEAN);
+        }
+
+        return "Task #" + taskId + " completed at " + completedTask.getCompletedAtText() + ".";
+    }
+
+    public synchronized ArrayList<String> getOperationsBoardLines() {
+        ArrayList<String> boardLines = new ArrayList<>();
+        ArrayList<Room> sortedRooms = new ArrayList<>(rooms);
+        sortedRooms.sort(Comparator.comparing(Room::getRoomNumber));
+
+        for (Room room : sortedRooms) {
+            OperationalStatus status = getOperationalStatusForRoom(room.getRoomNumber());
+            String guestName = roomToCustomerMap.getOrDefault(room.getRoomNumber(), "-");
+            long openTasks = operationTasks.stream()
+                    .filter(task -> task.getRoomNumber().equals(room.getRoomNumber()))
+                    .filter(task -> task.getTaskState() != TaskState.COMPLETED)
+                    .count();
+
+            boardLines.add("Room "
+                    + room.getRoomNumber()
+                    + " | "
+                    + room.getRoomType()
+                    + " | "
+                    + status.getDisplayName()
+                    + " | Guest: "
+                    + guestName
+                    + " | Open Tasks: "
+                    + openTasks);
+        }
+
+        return boardLines;
+    }
+
+    public synchronized ArrayList<OperationTask> getSortedOperationTasks() {
+        ArrayList<OperationTask> sortedTasks = new ArrayList<>(operationTasks);
+        sortedTasks.sort(Comparator
+                .comparing(OperationTask::getTaskState)
+                .thenComparing(OperationTask::getCreatedAt, Comparator.nullsLast(Comparator.reverseOrder()))
+                .thenComparing(OperationTask::getTaskId));
+        return sortedTasks;
+    }
+
     public String saveRoomsToTextFile(String filePath) {
-        // Demonstrating file handling with FileWriter
         try (FileWriter writer = new FileWriter(filePath)) {
             for (Room room : rooms) {
                 writer.write(room.getRoomNumber() + ","
                         + room.getRoomType() + ","
                         + room.getPrice() + ","
-                        + room.getAvailable() + System.lineSeparator());
+                        + room.getAvailable() + ","
+                        + getOperationalStatusForRoom(room.getRoomNumber()).name()
+                        + System.lineSeparator());
             }
             return "Room data saved to text file.";
         } catch (IOException exception) {
@@ -393,19 +593,21 @@ public class BookingSystem {
     }
 
     public String loadRoomsFromTextFile(String filePath) {
-        // Demonstrating file handling with FileReader
         try (FileReader reader = new FileReader(filePath); BufferedReader bufferedReader = new BufferedReader(reader)) {
             rooms.clear();
             roomToCustomerMap.clear();
             roomToCustomerPhoneMap.clear();
             roomBookingDatesMap.clear();
+            roomOperationalStatusMap.clear();
+            operationTasks.clear();
             billingRecords.clear();
             nextInvoiceNumber = 1001;
+            nextTaskId = 1;
 
             String line;
             while ((line = bufferedReader.readLine()) != null) {
                 String[] parts = line.split(",");
-                if (parts.length != 4) {
+                if (parts.length < 4) {
                     continue;
                 }
 
@@ -413,8 +615,13 @@ public class BookingSystem {
                 RoomType roomType = RoomType.valueOf(parts[1].trim());
                 Double price = Double.valueOf(parts[2].trim());
                 Boolean available = Boolean.valueOf(parts[3].trim());
+                OperationalStatus operationalStatus = parts.length >= 5
+                        ? OperationalStatus.valueOf(parts[4].trim())
+                        : deriveInitialStatus(available);
 
-                rooms.add(createRoomByType(roomType, roomNumber, price, available));
+                Room room = createRoomByType(roomType, roomNumber, price, available);
+                rooms.add(room);
+                setRoomOperationalStatusInternal(room, operationalStatus);
             }
             return "Room data loaded from text file.";
         } catch (IOException | IllegalArgumentException exception) {
@@ -423,9 +630,15 @@ public class BookingSystem {
     }
 
     public String saveRoomsSerialized(String filePath) {
-        // Demonstrating serialization save
         try (ObjectOutputStream outputStream = new ObjectOutputStream(new FileOutputStream(filePath))) {
-            outputStream.writeObject(rooms);
+            outputStream.writeObject(new SnapshotData(
+                    getRoomsSnapshot(),
+                    getRoomToCustomerSnapshot(),
+                    getCustomerPhoneSnapshot(),
+                    getBookingDatesSnapshot(),
+                    getOperationalStatusSnapshot(),
+                    getOperationTasksSnapshot(),
+                    getBillingRecordsSnapshot()));
             return "Room objects serialized successfully.";
         } catch (IOException exception) {
             return "Error in serialization save: " + exception.getMessage();
@@ -434,20 +647,35 @@ public class BookingSystem {
 
     @SuppressWarnings("unchecked")
     public String loadRoomsSerialized(String filePath) {
-        // Demonstrating serialization load
         try (ObjectInputStream inputStream = new ObjectInputStream(new FileInputStream(filePath))) {
             Object object = inputStream.readObject();
+            if (object instanceof SnapshotData snapshotData) {
+                loadSnapshot(
+                        snapshotData.rooms,
+                        snapshotData.roomCustomers,
+                        snapshotData.customerPhones,
+                        snapshotData.bookingDates,
+                        snapshotData.operationalStatuses,
+                        snapshotData.operationTasks,
+                        snapshotData.billingRecords);
+                return "Room objects loaded from serialized file.";
+            }
+
             if (object instanceof ArrayList<?>) {
                 rooms.clear();
                 roomToCustomerMap.clear();
                 roomToCustomerPhoneMap.clear();
                 roomBookingDatesMap.clear();
+                roomOperationalStatusMap.clear();
+                operationTasks.clear();
                 billingRecords.clear();
                 nextInvoiceNumber = 1001;
+                nextTaskId = 1;
 
                 for (Object item : (ArrayList<?>) object) {
-                    if (item instanceof Room) {
-                        rooms.add((Room) item);
+                    if (item instanceof Room room) {
+                        rooms.add(room);
+                        setRoomOperationalStatusInternal(room, deriveInitialStatus(room.getAvailable()));
                     }
                 }
                 return "Room objects loaded from serialized file.";
@@ -461,8 +689,7 @@ public class BookingSystem {
     public synchronized ArrayList<Room> getRoomsSnapshot() {
         ArrayList<Room> snapshot = new ArrayList<>();
         for (Room room : rooms) {
-            Room copy = createRoomByType(room.getRoomType(), room.getRoomNumber(), room.getPrice(), room.getAvailable());
-            snapshot.add(copy);
+            snapshot.add(createRoomByType(room.getRoomType(), room.getRoomNumber(), room.getPrice(), room.getAvailable()));
         }
         return snapshot;
     }
@@ -479,6 +706,14 @@ public class BookingSystem {
         return new HashMap<>(roomBookingDatesMap);
     }
 
+    public synchronized HashMap<Integer, OperationalStatus> getOperationalStatusSnapshot() {
+        return new HashMap<>(roomOperationalStatusMap);
+    }
+
+    public synchronized ArrayList<OperationTask> getOperationTasksSnapshot() {
+        return new ArrayList<>(operationTasks);
+    }
+
     public synchronized ArrayList<BillingRecord> getBillingRecordsSnapshot() {
         return new ArrayList<>(billingRecords);
     }
@@ -488,6 +723,8 @@ public class BookingSystem {
             HashMap<Integer, String> loadedRoomCustomers,
             HashMap<Integer, String> loadedCustomerPhones,
             HashMap<Integer, Pair<LocalDate, LocalDate>> loadedBookingDates,
+            HashMap<Integer, OperationalStatus> loadedOperationalStatuses,
+            ArrayList<OperationTask> loadedOperationTasks,
             ArrayList<BillingRecord> loadedBillingRecords) {
         rooms.clear();
         rooms.addAll(loadedRooms);
@@ -501,10 +738,20 @@ public class BookingSystem {
         roomBookingDatesMap.clear();
         roomBookingDatesMap.putAll(loadedBookingDates);
 
+        roomOperationalStatusMap.clear();
+        roomOperationalStatusMap.putAll(loadedOperationalStatuses);
+        for (Room room : rooms) {
+            setRoomOperationalStatusInternal(room, roomOperationalStatusMap.getOrDefault(room.getRoomNumber(), deriveInitialStatus(room.getAvailable())));
+        }
+
+        operationTasks.clear();
+        operationTasks.addAll(loadedOperationTasks);
+
         billingRecords.clear();
         billingRecords.addAll(loadedBillingRecords);
 
         updateInvoiceCounter();
+        updateTaskCounter();
     }
 
     private Room findRoomByNumber(Integer roomNumber) {
@@ -548,11 +795,70 @@ public class BookingSystem {
                 try {
                     maxInvoiceNumber = Math.max(maxInvoiceNumber, Integer.parseInt(invoiceNumber.substring(4)));
                 } catch (NumberFormatException ignored) {
-                    // Ignore malformed invoice numbers and keep the safe default.
+                    // Keep safe default when invoice numbers are malformed.
                 }
             }
         }
         nextInvoiceNumber = maxInvoiceNumber + 1;
+    }
+
+    private void updateTaskCounter() {
+        int maxTaskId = 0;
+        for (OperationTask task : operationTasks) {
+            if (task.getTaskId() != null) {
+                maxTaskId = Math.max(maxTaskId, task.getTaskId());
+            }
+        }
+        nextTaskId = maxTaskId + 1;
+    }
+
+    private OperationalStatus deriveInitialStatus(Boolean available) {
+        return Boolean.TRUE.equals(available) ? OperationalStatus.VACANT_CLEAN : OperationalStatus.OUT_OF_ORDER;
+    }
+
+    private OperationalStatus getOperationalStatusForRoom(Integer roomNumber) {
+        return roomOperationalStatusMap.getOrDefault(roomNumber, OperationalStatus.VACANT_CLEAN);
+    }
+
+    private void setRoomOperationalStatusInternal(Room room, OperationalStatus status) {
+        roomOperationalStatusMap.put(room.getRoomNumber(), status);
+        room.setAvailable(status.isSellable());
+    }
+
+    private void createAutomaticTask(Integer roomNumber, TaskCategory category, String assignedTo, String notes) {
+        operationTasks.add(new OperationTask(
+                nextTaskId++,
+                roomNumber,
+                category,
+                assignedTo,
+                notes,
+                LocalDateTime.now(),
+                TaskState.OPEN,
+                null));
+    }
+
+    private String defaultTaskNote(TaskCategory category, Integer roomNumber) {
+        return category == TaskCategory.HOUSEKEEPING
+                ? "Turnover cleaning scheduled for room " + roomNumber
+                : "Maintenance inspection scheduled for room " + roomNumber;
+    }
+
+    private OperationTask findTaskById(Integer taskId) {
+        for (OperationTask task : operationTasks) {
+            if (task.getTaskId().equals(taskId)) {
+                return task;
+            }
+        }
+        return null;
+    }
+
+    private void replaceTask(OperationTask updatedTask) {
+        for (int index = 0; index < operationTasks.size(); index++) {
+            if (operationTasks.get(index).getTaskId().equals(updatedTask.getTaskId())) {
+                operationTasks.set(index, updatedTask);
+                return;
+            }
+        }
     }
 
     private Room createRoomByType(RoomType roomType, Integer roomNumber, Double price, Boolean available) {

@@ -322,6 +322,7 @@
 .quick-room,
 .quick-guest,
 .quick-booking,
+.quick-operations,
 .quick-reports {
     -fx-background-color:
         linear-gradient(to right, rgba(213, 176, 120, 0.18), rgba(60, 92, 128, 0.06)),
@@ -332,6 +333,7 @@
 .quick-room:hover,
 .quick-guest:hover,
 .quick-booking:hover,
+.quick-operations:hover,
 .quick-reports:hover {
     -fx-background-color:
         linear-gradient(to right, rgba(213, 176, 120, 0.28), rgba(60, 92, 128, 0.10)),
@@ -525,7 +527,10 @@
 }
 
 .status-available,
-.status-occupied {
+.status-occupied,
+.status-dirty,
+.status-cleaning,
+.status-maintenance {
     -fx-font-weight: 800;
 }
 
@@ -539,6 +544,21 @@
     -fx-text-fill: #f4e0c3;
 }
 
+.status-dirty {
+    -fx-background-color: rgba(170, 112, 84, 0.28);
+    -fx-text-fill: #ffd8c6;
+}
+
+.status-cleaning {
+    -fx-background-color: rgba(99, 136, 176, 0.28);
+    -fx-text-fill: #d9ecff;
+}
+
+.status-maintenance {
+    -fx-background-color: rgba(116, 99, 162, 0.30);
+    -fx-text-fill: #e7dcff;
+}
+
 .report-empty {
     -fx-padding: 24;
     -fx-font-size: 12px;
@@ -547,6 +567,18 @@
     -fx-background-color: #10161d;
     -fx-border-color: transparent rgba(255, 255, 255, 0.03) rgba(255, 255, 255, 0.03) transparent;
     -fx-border-width: 0 1 1 0;
+}
+
+.operations-board-list .list-cell {
+    -fx-padding: 14 16;
+    -fx-font-size: 12px;
+    -fx-font-weight: 700;
+}
+
+.operations-task-list .list-cell {
+    -fx-padding: 14 16;
+    -fx-font-size: 12px;
+    -fx-font-weight: 600;
 }
 
 .report-scroll,

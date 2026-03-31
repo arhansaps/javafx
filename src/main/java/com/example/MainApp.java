@@ -53,6 +53,12 @@ public class MainApp extends Application {
     private final Label reportOccupiedRoomsValue = new Label("0");
     private final Label reportOccupancyRateValue = new Label("0.00%");
 
+    // Operations dashboard counters
+    private final Label dirtyRoomsValue = new Label("0");
+    private final Label cleaningRoomsValue = new Label("0");
+    private final Label maintenanceRoomsValue = new Label("0");
+    private final Label openTasksValue = new Label("0");
+
     @Override
     public void start(Stage stage) {
         Label eyebrowLabel = new Label("Boutique Operations Suite");
@@ -78,9 +84,20 @@ public class MainApp extends Application {
         ListView<String> activityListView = new ListView<>(activityItems);
         activityListView.setPlaceholder(new Label("Activity updates will appear here."));
         activityListView.setPrefHeight(220);
+        ListView<String> operationsBoardListView = new ListView<>();
+        operationsBoardListView.setPlaceholder(new Label("Rooms will appear here once inventory is created."));
+        operationsBoardListView.setPrefHeight(320);
+        operationsBoardListView.getStyleClass().add("operations-board-list");
+
+        ListView<OperationTask> operationsTaskListView = new ListView<>();
+        operationsTaskListView.setPlaceholder(new Label("Open housekeeping and maintenance tasks will appear here."));
+        operationsTaskListView.setPrefHeight(320);
+        operationsTaskListView.getStyleClass().add("operations-task-list");
         VBox.setVgrow(roomListView, Priority.ALWAYS);
         VBox.setVgrow(bookingListView, Priority.ALWAYS);
         VBox.setVgrow(activityListView, Priority.ALWAYS);
+        VBox.setVgrow(operationsBoardListView, Priority.ALWAYS);
+        VBox.setVgrow(operationsTaskListView, Priority.ALWAYS);
 
         GridPane roomGrid = new GridPane();
         roomGrid.getStyleClass().addAll("section-card", "form-card");
@@ -271,19 +288,23 @@ public class MainApp extends Application {
         Button roomManagementButton = new Button("Room Management\nInventory, pricing, and availability");
         Button customerManagementButton = new Button("Customer Management\nGuest check-in and allocation");
         Button bookingManagementButton = new Button("Booking Operations\nLive reservations and payment flow");
+        Button operationsButton = new Button("Operations Board\nHousekeeping, maintenance, and dispatch");
         Button reportsButton = new Button("Reports & Analytics\nOccupancy, allocation, and review");
 
         roomManagementButton.getStyleClass().addAll("quick-button", "quick-room");
         customerManagementButton.getStyleClass().addAll("quick-button", "quick-guest");
         bookingManagementButton.getStyleClass().addAll("quick-button", "quick-booking");
+        operationsButton.getStyleClass().addAll("quick-button", "quick-operations");
         reportsButton.getStyleClass().addAll("quick-button", "quick-reports");
         roomManagementButton.setWrapText(true);
         customerManagementButton.setWrapText(true);
         bookingManagementButton.setWrapText(true);
+        operationsButton.setWrapText(true);
         reportsButton.setWrapText(true);
         roomManagementButton.setMaxWidth(Double.MAX_VALUE);
         customerManagementButton.setMaxWidth(Double.MAX_VALUE);
         bookingManagementButton.setMaxWidth(Double.MAX_VALUE);
+        operationsButton.setMaxWidth(Double.MAX_VALUE);
         reportsButton.setMaxWidth(Double.MAX_VALUE);
 
         Label quickActionsTitle = new Label("Quick Actions");
@@ -307,7 +328,8 @@ public class MainApp extends Application {
         quickActionsGrid.add(roomManagementButton, 0, 0);
         quickActionsGrid.add(customerManagementButton, 1, 0);
         quickActionsGrid.add(bookingManagementButton, 0, 1);
-        quickActionsGrid.add(reportsButton, 1, 1);
+        quickActionsGrid.add(operationsButton, 1, 1);
+        quickActionsGrid.add(reportsButton, 0, 2, 2, 1);
 
         VBox quickActionsBox = new VBox(12, quickActionsTitle, quickActionsHint, quickActionsGrid);
         quickActionsBox.getStyleClass().addAll("section-card", "command-card");
@@ -422,6 +444,135 @@ public class MainApp extends Application {
         customerScrollPane.setFitToWidth(true);
         customerScrollPane.getStyleClass().add("content-scroll");
 
+        Label operationsTitle = new Label("Housekeeping + Maintenance Command Board");
+        operationsTitle.getStyleClass().add("section-title");
+
+        Label operationsHint = new Label("Route rooms through housekeeping and maintenance states, assign owners, and close tasks with visible timestamps.");
+        operationsHint.getStyleClass().add("dashboard-hint");
+
+        GridPane operationsSnapshotGrid = new GridPane();
+        operationsSnapshotGrid.setHgap(10);
+        operationsSnapshotGrid.setVgap(10);
+        operationsSnapshotGrid.setMaxWidth(Double.MAX_VALUE);
+        for (int index = 0; index < 4; index++) {
+            ColumnConstraints operationsColumn = new ColumnConstraints();
+            operationsColumn.setPercentWidth(25);
+            operationsColumn.setHgrow(Priority.ALWAYS);
+            operationsColumn.setFillWidth(true);
+            operationsSnapshotGrid.getColumnConstraints().add(operationsColumn);
+        }
+        operationsSnapshotGrid.add(createStatCard("Dirty Rooms", dirtyRoomsValue, "stat-orange"), 0, 0);
+        operationsSnapshotGrid.add(createStatCard("Cleaning", cleaningRoomsValue, "stat-blue"), 1, 0);
+        operationsSnapshotGrid.add(createStatCard("Maintenance", maintenanceRoomsValue, "stat-purple"), 2, 0);
+        operationsSnapshotGrid.add(createStatCard("Open Tasks", openTasksValue, "stat-green"), 3, 0);
+
+        VBox operationsSnapshotCard = new VBox(8, new Label("Operations Snapshot"), operationsSnapshotGrid);
+        operationsSnapshotCard.getChildren().get(0).getStyleClass().add("section-title");
+        operationsSnapshotCard.getStyleClass().addAll("section-card", "summary-card");
+        operationsSnapshotCard.setMaxWidth(Double.MAX_VALUE);
+
+        ComboBox<Integer> operationsRoomCombo = new ComboBox<>();
+        operationsRoomCombo.setPromptText("Select room");
+
+        ComboBox<OperationalStatus> operationsStatusCombo = new ComboBox<>(FXCollections.observableArrayList(OperationalStatus.values()));
+        operationsStatusCombo.setValue(OperationalStatus.VACANT_CLEAN);
+
+        ComboBox<TaskCategory> taskCategoryCombo = new ComboBox<>(FXCollections.observableArrayList(TaskCategory.values()));
+        taskCategoryCombo.setValue(TaskCategory.HOUSEKEEPING);
+
+        TextField assignedStaffField = new TextField();
+        assignedStaffField.setPromptText("Assigned staff member");
+
+        TextField taskNotesField = new TextField();
+        taskNotesField.setPromptText("Task notes or dispatch instruction");
+
+        Button updateRoomStatusButton = new Button("Update Room Status");
+        updateRoomStatusButton.getStyleClass().add("secondary-button");
+        Button createTaskButton = new Button("Create Task");
+        createTaskButton.getStyleClass().add("primary-button");
+        Button markTaskInProgressButton = new Button("Mark In Progress");
+        markTaskInProgressButton.getStyleClass().add("secondary-button");
+        Button completeTaskButton = new Button("Complete Task");
+        completeTaskButton.getStyleClass().add("warning-button");
+        Button refreshOperationsButton = new Button("Refresh Board");
+        refreshOperationsButton.getStyleClass().add("secondary-button");
+
+        updateRoomStatusButton.setMaxWidth(Double.MAX_VALUE);
+        createTaskButton.setMaxWidth(Double.MAX_VALUE);
+        markTaskInProgressButton.setMaxWidth(Double.MAX_VALUE);
+        completeTaskButton.setMaxWidth(Double.MAX_VALUE);
+        refreshOperationsButton.setMaxWidth(Double.MAX_VALUE);
+
+        GridPane operationsControlGrid = new GridPane();
+        operationsControlGrid.getStyleClass().addAll("section-card", "form-card");
+        operationsControlGrid.setHgap(10);
+        operationsControlGrid.setVgap(10);
+        operationsControlGrid.setMaxWidth(Double.MAX_VALUE);
+        operationsControlGrid.add(new Label("Room:"), 0, 0);
+        operationsControlGrid.add(operationsRoomCombo, 1, 0);
+        operationsControlGrid.add(new Label("Room Status:"), 0, 1);
+        operationsControlGrid.add(operationsStatusCombo, 1, 1);
+        operationsControlGrid.add(new Label("Task Category:"), 0, 2);
+        operationsControlGrid.add(taskCategoryCombo, 1, 2);
+        operationsControlGrid.add(new Label("Assign To:"), 0, 3);
+        operationsControlGrid.add(assignedStaffField, 1, 3);
+        operationsControlGrid.add(new Label("Notes:"), 0, 4);
+        operationsControlGrid.add(taskNotesField, 1, 4);
+        operationsControlGrid.add(updateRoomStatusButton, 0, 5);
+        operationsControlGrid.add(createTaskButton, 1, 5);
+        operationsControlGrid.add(markTaskInProgressButton, 0, 6);
+        operationsControlGrid.add(completeTaskButton, 1, 6);
+        operationsControlGrid.add(refreshOperationsButton, 0, 7, 2, 1);
+
+        Label operationsBoardTitle = new Label("Room Command Board");
+        operationsBoardTitle.getStyleClass().add("section-title");
+        Label operationsBoardHint = new Label("Sellable, occupied, dirty, and maintenance states update here as the front desk works.");
+        operationsBoardHint.getStyleClass().add("dashboard-hint");
+        VBox operationsBoardCard = new VBox(10, operationsBoardTitle, operationsBoardHint, operationsBoardListView);
+        operationsBoardCard.getStyleClass().addAll("section-card", "command-card");
+        operationsBoardCard.setMaxWidth(Double.MAX_VALUE);
+
+        Label operationsTaskTitle = new Label("Task Queue");
+        operationsTaskTitle.getStyleClass().add("section-title");
+        Label operationsTaskHint = new Label("Every task carries category, assigned staff, notes, created time, and completion time.");
+        operationsTaskHint.getStyleClass().add("dashboard-hint");
+        VBox operationsTaskCard = new VBox(10, operationsTaskTitle, operationsTaskHint, operationsTaskListView);
+        operationsTaskCard.getStyleClass().addAll("section-card", "activity-card");
+        operationsTaskCard.setMaxWidth(Double.MAX_VALUE);
+
+        VBox operationsRightColumn = new VBox(14, operationsControlGrid, operationsTaskCard);
+        operationsRightColumn.setFillWidth(true);
+        operationsRightColumn.setMaxWidth(Double.MAX_VALUE);
+        VBox.setVgrow(operationsTaskCard, Priority.ALWAYS);
+
+        GridPane operationsWorkspace = new GridPane();
+        operationsWorkspace.setHgap(14);
+        operationsWorkspace.setVgap(14);
+        operationsWorkspace.setMaxWidth(Double.MAX_VALUE);
+        ColumnConstraints operationsLeftColumn = new ColumnConstraints();
+        operationsLeftColumn.setPercentWidth(54);
+        operationsLeftColumn.setHgrow(Priority.ALWAYS);
+        operationsLeftColumn.setFillWidth(true);
+        ColumnConstraints operationsRightGridColumn = new ColumnConstraints();
+        operationsRightGridColumn.setPercentWidth(46);
+        operationsRightGridColumn.setHgrow(Priority.ALWAYS);
+        operationsRightGridColumn.setFillWidth(true);
+        operationsWorkspace.getColumnConstraints().addAll(operationsLeftColumn, operationsRightGridColumn);
+        operationsWorkspace.add(operationsBoardCard, 0, 0);
+        operationsWorkspace.add(operationsRightColumn, 1, 0);
+        GridPane.setHgrow(operationsBoardCard, Priority.ALWAYS);
+        GridPane.setVgrow(operationsBoardCard, Priority.ALWAYS);
+        GridPane.setHgrow(operationsRightColumn, Priority.ALWAYS);
+        GridPane.setVgrow(operationsRightColumn, Priority.ALWAYS);
+
+        VBox operationsTabContent = new VBox(16, operationsTitle, operationsHint, operationsSnapshotCard, operationsWorkspace);
+        operationsTabContent.setPadding(new Insets(12));
+        operationsTabContent.setFillWidth(true);
+        operationsTabContent.setMaxWidth(Double.MAX_VALUE);
+        ScrollPane operationsScrollPane = new ScrollPane(operationsTabContent);
+        operationsScrollPane.setFitToWidth(true);
+        operationsScrollPane.getStyleClass().add("content-scroll");
+
         Label reportsTitle = new Label("Reports & Analytics");
         reportsTitle.getStyleClass().add("section-title");
 
@@ -502,16 +653,19 @@ public class MainApp extends Application {
         Tab customerTab = new Tab("Customers", customerScrollPane);
         customerTab.setClosable(false);
 
+        Tab operationsTab = new Tab("Operations", operationsScrollPane);
+        operationsTab.setClosable(false);
+
         Tab reportsTab = new Tab("Reports", reportsScrollPane);
         reportsTab.setClosable(false);
 
         Tab billingTab = new Tab("Billing", billingScrollPane);
         billingTab.setClosable(false);
 
-        TabPane tabPane = new TabPane(homeTab, roomTab, customerTab, reportsTab, billingTab);
+        TabPane tabPane = new TabPane(homeTab, roomTab, customerTab, operationsTab, reportsTab, billingTab);
 
         Runnable refreshAllViews = () -> {
-            refreshAllSections(roomListView, bookingListView, reportTableGrid);
+            refreshAllSections(roomListView, bookingListView, reportTableGrid, operationsRoomCombo, operationsBoardListView, operationsTaskListView);
             billingController.refreshBillingData();
         };
 
@@ -658,9 +812,83 @@ public class MainApp extends Application {
             updateStatus("Comprehensive report refreshed.");
         });
 
+        operationsTaskListView.getSelectionModel().selectedItemProperty().addListener((observable, oldTask, newTask) -> {
+            if (newTask == null) {
+                return;
+            }
+
+            operationsRoomCombo.setValue(newTask.getRoomNumber());
+            taskCategoryCombo.setValue(newTask.getCategory());
+            assignedStaffField.setText(newTask.getAssignedTo());
+            taskNotesField.setText(newTask.getNotes());
+        });
+
+        updateRoomStatusButton.setOnAction(event -> {
+            Integer roomNumber = operationsRoomCombo.getValue();
+            if (roomNumber == null) {
+                updateStatus("Select a room for the operations board.");
+                return;
+            }
+
+            updateStatus(bookingSystem.updateRoomOperationalStatus(
+                    roomNumber,
+                    operationsStatusCombo.getValue(),
+                    assignedStaffField.getText(),
+                    taskNotesField.getText()));
+            refreshAllViews.run();
+        });
+
+        createTaskButton.setOnAction(event -> {
+            Integer roomNumber = operationsRoomCombo.getValue();
+            if (roomNumber == null) {
+                updateStatus("Select a room before creating a task.");
+                return;
+            }
+
+            updateStatus(bookingSystem.createOperationTask(
+                    roomNumber,
+                    taskCategoryCombo.getValue(),
+                    assignedStaffField.getText(),
+                    taskNotesField.getText()));
+            refreshAllViews.run();
+        });
+
+        markTaskInProgressButton.setOnAction(event -> {
+            OperationTask selectedTask = operationsTaskListView.getSelectionModel().getSelectedItem();
+            if (selectedTask == null) {
+                updateStatus("Select a task from the operations queue.");
+                return;
+            }
+
+            updateStatus(bookingSystem.markTaskInProgress(selectedTask.getTaskId()));
+            refreshAllViews.run();
+        });
+
+        completeTaskButton.setOnAction(event -> {
+            OperationTask selectedTask = operationsTaskListView.getSelectionModel().getSelectedItem();
+            if (selectedTask == null) {
+                updateStatus("Select a task from the operations queue.");
+                return;
+            }
+
+            updateStatus(bookingSystem.completeTask(selectedTask.getTaskId()));
+            refreshAllViews.run();
+            operationsTaskListView.getSelectionModel().clearSelection();
+        });
+
+        refreshOperationsButton.setOnAction(event -> {
+            refreshAllViews.run();
+            updateStatus("Operations command board refreshed.");
+        });
+
         roomManagementButton.setOnAction(event -> tabPane.getSelectionModel().select(roomTab));
         customerManagementButton.setOnAction(event -> tabPane.getSelectionModel().select(customerTab));
         bookingManagementButton.setOnAction(event -> tabPane.getSelectionModel().select(customerTab));
+        operationsButton.setOnAction(event -> {
+            tabPane.getSelectionModel().select(operationsTab);
+            refreshAllViews.run();
+            updateStatus("Operations board loaded.");
+        });
         reportsButton.setOnAction(event -> {
             tabPane.getSelectionModel().select(reportsTab);
             refreshAllViews.run();
@@ -684,6 +912,7 @@ public class MainApp extends Application {
                 8,
                 createHeroChip("JavaFX"),
                 createHeroChip("FXML Billing"),
+                createHeroChip("Operations Board"),
                 createHeroChip("JDBC Persistence"),
                 createHeroChip("Live Payment Capture")
         );
@@ -799,10 +1028,20 @@ public class MainApp extends Application {
         }
     }
 
-    private void refreshAllSections(ListView<String> roomListView, ListView<String> bookingListView, GridPane reportTableGrid) {
+    private void refreshAllSections(
+            ListView<String> roomListView,
+            ListView<String> bookingListView,
+            GridPane reportTableGrid,
+            ComboBox<Integer> operationsRoomCombo,
+            ListView<String> operationsBoardListView,
+            ListView<OperationTask> operationsTaskListView) {
         refreshRoomList(roomListView);
         refreshBookingList(bookingListView);
         refreshDashboardCounters();
+        refreshOperationRoomChoices(operationsRoomCombo);
+        refreshOperationsBoard(operationsBoardListView);
+        refreshOperationsTaskList(operationsTaskListView);
+        refreshOperationsCounters();
         refreshReportTable(reportTableGrid);
     }
 
@@ -821,12 +1060,43 @@ public class MainApp extends Application {
         reportOccupancyRateValue.setText(String.format("%.2f%%", bookingSystem.getOccupancyRate()));
     }
 
+    private void refreshOperationsCounters() {
+        dirtyRoomsValue.setText(String.valueOf(bookingSystem.getOperationalStatusCount(OperationalStatus.DIRTY)));
+        cleaningRoomsValue.setText(String.valueOf(bookingSystem.getOperationalStatusCount(OperationalStatus.CLEANING)));
+        maintenanceRoomsValue.setText(String.valueOf(
+                bookingSystem.getOperationalStatusCount(OperationalStatus.MAINTENANCE)
+                        + bookingSystem.getOperationalStatusCount(OperationalStatus.OUT_OF_ORDER)));
+        openTasksValue.setText(String.valueOf(
+                bookingSystem.getTaskCount(TaskState.OPEN) + bookingSystem.getTaskCount(TaskState.IN_PROGRESS)));
+    }
+
     private void refreshRoomList(ListView<String> roomListView) {
         roomListView.getItems().setAll(splitToLines(bookingSystem.displayAllRooms()));
     }
 
     private void refreshBookingList(ListView<String> bookingListView) {
         bookingListView.getItems().setAll(splitToLines(bookingSystem.displayBookings()));
+    }
+
+    private void refreshOperationRoomChoices(ComboBox<Integer> operationsRoomCombo) {
+        Integer selectedRoom = operationsRoomCombo.getValue();
+        ArrayList<Integer> roomNumbers = new ArrayList<>();
+        for (Room room : bookingSystem.getRoomsSnapshot()) {
+            roomNumbers.add(room.getRoomNumber());
+        }
+        roomNumbers.sort(Integer::compareTo);
+        operationsRoomCombo.setItems(FXCollections.observableArrayList(roomNumbers));
+        if (selectedRoom != null && roomNumbers.contains(selectedRoom)) {
+            operationsRoomCombo.setValue(selectedRoom);
+        }
+    }
+
+    private void refreshOperationsBoard(ListView<String> operationsBoardListView) {
+        operationsBoardListView.getItems().setAll(bookingSystem.getOperationsBoardLines());
+    }
+
+    private void refreshOperationsTaskList(ListView<OperationTask> operationsTaskListView) {
+        operationsTaskListView.getItems().setAll(bookingSystem.getSortedOperationTasks());
     }
 
     private void refreshReportTable(GridPane reportTableGrid) {
@@ -858,7 +1128,7 @@ public class MainApp extends Application {
             reportTableGrid.add(createReportDataCell(reportRow.getRoomType(), 130.0), 1, rowIndex);
             reportTableGrid.add(createReportDataCell(String.format("%.2f", reportRow.getPrice()), 110.0), 2, rowIndex);
 
-            String statusClass = Boolean.TRUE.equals(reportRow.getAvailable()) ? "status-available" : "status-occupied";
+            String statusClass = getReportStatusClass(reportRow.getOperationalStatus());
             reportTableGrid.add(createReportDataCell(reportRow.getStatusText(), 130.0, statusClass), 3, rowIndex);
             reportTableGrid.add(createReportDataCell(reportRow.getCustomerName(), 180.0), 4, rowIndex);
             reportTableGrid.add(createReportDataCell(reportRow.getCustomerPhone(), 150.0), 5, rowIndex);
@@ -886,6 +1156,20 @@ public class MainApp extends Application {
             dataCell.getStyleClass().add(styleClass);
         }
         return dataCell;
+    }
+
+    private String getReportStatusClass(OperationalStatus operationalStatus) {
+        if (operationalStatus == null) {
+            return "status-maintenance";
+        }
+
+        return switch (operationalStatus) {
+            case VACANT_CLEAN -> "status-available";
+            case OCCUPIED -> "status-occupied";
+            case DIRTY -> "status-dirty";
+            case CLEANING -> "status-cleaning";
+            case OUT_OF_ORDER, MAINTENANCE -> "status-maintenance";
+        };
     }
 
     private void updatePaymentFields(PaymentMethod paymentMethod, VBox cardPaymentBox, VBox upiPaymentBox, Label cashHintLabel) {

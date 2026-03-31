@@ -1,10 +1,12 @@
 package com.example;
 
+import java.io.Serializable;
 import java.time.LocalDate;
-import java.time.temporal.ChronoUnit;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 
-public class BillingRecord {
+public class BillingRecord implements Serializable {
+    private static final long serialVersionUID = 1L;
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("dd MMM yyyy");
 
     private final String invoiceNumber;

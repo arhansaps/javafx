@@ -7,6 +7,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -28,10 +29,13 @@ public final class DatabaseService {
             HashMap<Integer, String> bookings = bookingSystem.getRoomToCustomerSnapshot();
             HashMap<Integer, String> customerPhones = bookingSystem.getCustomerPhoneSnapshot();
             HashMap<Integer, Pair<LocalDate, LocalDate>> bookingDates = bookingSystem.getBookingDatesSnapshot();
+            HashMap<Integer, OperationalStatus> operationalStatuses = bookingSystem.getOperationalStatusSnapshot();
+            ArrayList<OperationTask> operationTasks = bookingSystem.getOperationTasksSnapshot();
             ArrayList<BillingRecord> billingRecords = bookingSystem.getBillingRecordsSnapshot();
 
-            saveRooms(connection, rooms);
+            saveRooms(connection, rooms, operationalStatuses);
             saveBookings(connection, bookings, customerPhones, bookingDates);
+            saveOperationTasks(connection, operationTasks);
             saveBillingRecords(connection, billingRecords);
 
             connection.commit();
@@ -51,9 +55,18 @@ public final class DatabaseService {
             HashMap<Integer, String> loadedBookings = loadBookings(connection);
             HashMap<Integer, String> loadedCustomerPhones = loadCustomerPhones(connection);
             HashMap<Integer, Pair<LocalDate, LocalDate>> loadedBookingDates = loadBookingDates(connection);
+            HashMap<Integer, OperationalStatus> loadedOperationalStatuses = loadOperationalStatuses(connection);
+            ArrayList<OperationTask> loadedOperationTasks = loadOperationTasks(connection);
             ArrayList<BillingRecord> loadedBillingRecords = loadBillingRecords(connection);
 
-            bookingSystem.loadSnapshot(loadedRooms, loadedBookings, loadedCustomerPhones, loadedBookingDates, loadedBillingRecords);
+            bookingSystem.loadSnapshot(
+                    loadedRooms,
+                    loadedBookings,
+                    loadedCustomerPhones,
+                    loadedBookingDates,
+                    loadedOperationalStatuses,
+                    loadedOperationTasks,
+                    loadedBillingRecords);
             return "Data loaded from JDBC database successfully.";
         } catch (SQLException exception) {
             return "Error loading JDBC data: " + exception.getMessage();
@@ -67,7 +80,8 @@ public final class DatabaseService {
                         room_number INTEGER PRIMARY KEY,
                         room_type TEXT NOT NULL,
                         price REAL NOT NULL,
-                        available INTEGER NOT NULL
+                        available INTEGER NOT NULL,
+                        operational_status TEXT NOT NULL DEFAULT 'VACANT_CLEAN'
                     )
                     """);
 
@@ -100,8 +114,22 @@ public final class DatabaseService {
                         generated_on TEXT
                     )
                     """);
+
+            statement.execute("""
+                    CREATE TABLE IF NOT EXISTS operation_tasks (
+                        task_id INTEGER PRIMARY KEY,
+                        room_number INTEGER NOT NULL,
+                        category TEXT NOT NULL,
+                        assigned_to TEXT NOT NULL,
+                        notes TEXT NOT NULL,
+                        created_at TEXT,
+                        task_state TEXT NOT NULL,
+                        completed_at TEXT
+                    )
+                    """);
         }
 
+        ensureColumn(connection, "rooms", "operational_status", "TEXT NOT NULL DEFAULT 'VACANT_CLEAN'");
         ensureColumn(connection, "bookings", "customer_phone", "TEXT NOT NULL DEFAULT '-'");
         ensureColumn(connection, "billing_records", "payment_method", "TEXT NOT NULL DEFAULT '-'");
         ensureColumn(connection, "billing_records", "payment_status", "TEXT NOT NULL DEFAULT 'Pending'");
@@ -111,19 +139,24 @@ public final class DatabaseService {
     private static void clearTables(Connection connection) throws SQLException {
         try (Statement statement = connection.createStatement()) {
             statement.executeUpdate("DELETE FROM billing_records");
+            statement.executeUpdate("DELETE FROM operation_tasks");
             statement.executeUpdate("DELETE FROM bookings");
             statement.executeUpdate("DELETE FROM rooms");
         }
     }
 
-    private static void saveRooms(Connection connection, ArrayList<Room> rooms) throws SQLException {
+    private static void saveRooms(
+            Connection connection,
+            ArrayList<Room> rooms,
+            HashMap<Integer, OperationalStatus> operationalStatuses) throws SQLException {
         try (PreparedStatement statement = connection.prepareStatement(
-                "INSERT INTO rooms (room_number, room_type, price, available) VALUES (?, ?, ?, ?)")) {
+                "INSERT INTO rooms (room_number, room_type, price, available, operational_status) VALUES (?, ?, ?, ?, ?)")) {
             for (Room room : rooms) {
                 statement.setInt(1, room.getRoomNumber());
                 statement.setString(2, room.getRoomType().name());
                 statement.setDouble(3, room.getPrice());
                 statement.setInt(4, Boolean.TRUE.equals(room.getAvailable()) ? 1 : 0);
+                statement.setString(5, operationalStatuses.getOrDefault(room.getRoomNumber(), OperationalStatus.VACANT_CLEAN).name());
                 statement.addBatch();
             }
             statement.executeBatch();
@@ -192,6 +225,34 @@ public final class DatabaseService {
         }
     }
 
+    private static void saveOperationTasks(Connection connection, ArrayList<OperationTask> operationTasks) throws SQLException {
+        try (PreparedStatement statement = connection.prepareStatement("""
+                INSERT INTO operation_tasks (
+                    task_id,
+                    room_number,
+                    category,
+                    assigned_to,
+                    notes,
+                    created_at,
+                    task_state,
+                    completed_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """)) {
+            for (OperationTask task : operationTasks) {
+                statement.setInt(1, task.getTaskId());
+                statement.setInt(2, task.getRoomNumber());
+                statement.setString(3, task.getCategory().name());
+                statement.setString(4, task.getAssignedTo());
+                statement.setString(5, task.getNotes());
+                statement.setString(6, task.getCreatedAt() == null ? null : task.getCreatedAt().toString());
+                statement.setString(7, task.getTaskState().name());
+                statement.setString(8, task.getCompletedAt() == null ? null : task.getCompletedAt().toString());
+                statement.addBatch();
+            }
+            statement.executeBatch();
+        }
+    }
+
     private static ArrayList<Room> loadRooms(Connection connection) throws SQLException {
         ArrayList<Room> loadedRooms = new ArrayList<>();
 
@@ -209,6 +270,28 @@ public final class DatabaseService {
         }
 
         return loadedRooms;
+    }
+
+    private static HashMap<Integer, OperationalStatus> loadOperationalStatuses(Connection connection) throws SQLException {
+        HashMap<Integer, OperationalStatus> loadedOperationalStatuses = new HashMap<>();
+
+        try (Statement statement = connection.createStatement();
+             ResultSet resultSet = statement.executeQuery("SELECT room_number, operational_status, available FROM rooms")) {
+            while (resultSet.next()) {
+                String rawStatus = resultSet.getString("operational_status");
+                OperationalStatus operationalStatus;
+                try {
+                    operationalStatus = rawStatus == null || rawStatus.isBlank()
+                            ? deriveLegacyStatus(resultSet.getInt("available") == 1)
+                            : OperationalStatus.valueOf(rawStatus);
+                } catch (IllegalArgumentException exception) {
+                    operationalStatus = deriveLegacyStatus(resultSet.getInt("available") == 1);
+                }
+                loadedOperationalStatuses.put(resultSet.getInt("room_number"), operationalStatus);
+            }
+        }
+
+        return loadedOperationalStatuses;
     }
 
     private static HashMap<Integer, String> loadBookings(Connection connection) throws SQLException {
@@ -286,6 +369,35 @@ public final class DatabaseService {
         return loadedBillingRecords;
     }
 
+    private static ArrayList<OperationTask> loadOperationTasks(Connection connection) throws SQLException {
+        ArrayList<OperationTask> loadedOperationTasks = new ArrayList<>();
+
+        try (Statement statement = connection.createStatement();
+             ResultSet resultSet = statement.executeQuery("""
+                     SELECT task_id, room_number, category, assigned_to, notes, created_at, task_state, completed_at
+                     FROM operation_tasks
+                     ORDER BY CASE task_state
+                         WHEN 'OPEN' THEN 1
+                         WHEN 'IN_PROGRESS' THEN 2
+                         ELSE 3
+                     END, created_at DESC, task_id DESC
+                     """)) {
+            while (resultSet.next()) {
+                loadedOperationTasks.add(new OperationTask(
+                        resultSet.getInt("task_id"),
+                        resultSet.getInt("room_number"),
+                        TaskCategory.valueOf(resultSet.getString("category")),
+                        resultSet.getString("assigned_to"),
+                        resultSet.getString("notes"),
+                        parseDateTime(resultSet.getString("created_at")),
+                        TaskState.valueOf(resultSet.getString("task_state")),
+                        parseDateTime(resultSet.getString("completed_at"))));
+            }
+        }
+
+        return loadedOperationTasks;
+    }
+
     private static void ensureColumn(Connection connection, String tableName, String columnName, String definition) throws SQLException {
         Set<String> columnNames = new HashSet<>();
         try (Statement statement = connection.createStatement();
@@ -313,5 +425,13 @@ public final class DatabaseService {
 
     private static LocalDate parseDate(String dateValue) {
         return dateValue == null || dateValue.isBlank() ? null : LocalDate.parse(dateValue);
+    }
+
+    private static LocalDateTime parseDateTime(String dateValue) {
+        return dateValue == null || dateValue.isBlank() ? null : LocalDateTime.parse(dateValue);
+    }
+
+    private static OperationalStatus deriveLegacyStatus(boolean available) {
+        return available ? OperationalStatus.VACANT_CLEAN : OperationalStatus.OUT_OF_ORDER;
     }
 }
